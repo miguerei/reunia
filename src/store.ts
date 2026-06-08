@@ -465,7 +465,7 @@ export const useStore = create<ReunIAStore>()(
         try {
           await clearMemoryFromLib()
           set({ memoryCount: 0 })
-          console.log('[memory] cleared all local memory entries')
+          console.log('[memory] cleared all local memory entries (count forced 0)')
         } catch (e) {
           console.warn('clearMemory failed', e)
           // still reflect in-memory clear
