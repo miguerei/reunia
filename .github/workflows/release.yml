@@ -1,0 +1,78 @@
+name: Build and Release (Secure)
+
+on:
+  push:
+    tags:
+      - 'v*.*.*'
+
+permissions:
+  contents: write   # Only for creating/updating releases (least privilege possible for this job)
+  # No id-token or other high perms unless needed for OIDC signing in future
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: macos-latest
+            script: npm run dist:mac
+            artifact_path: release/*.dmg
+            artifact_name: mac
+          - os: windows-latest
+            script: npm run dist:win
+            artifact_path: release/*.exe
+            artifact_name: win
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout (pinned SHA for supply-chain security)
+        uses: actions/checkout@692973e3d937129bcbf40652eb9f2f61becf3332 # v4.1.7
+
+      - name: Setup Node.js
+        uses: actions/setup-node@1e60f620b9541d16bece96c5465dc8ee9832be0b # v4.0.3
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Build renderer + compile Electron + create installer
+        run: ${{ matrix.script }}
+        env:
+          # No secrets needed for unsigned builds.
+          # For production signed macOS/Windows releases, add Apple ID / certificate secrets here
+          # and configure electron-builder accordingly. Never log secrets.
+          CSC_IDENTITY_AUTO_DISCOVERY: false   # Helps on CI for mac if no cert
+
+      - name: Upload build artifacts (for manual inspection before release)
+        uses: actions/upload-artifact@5d5d22a31266ced268874388b861e4b58f5c9606 # v4.3.1
+        with:
+          name: reunia-${{ matrix.artifact_name }}
+          path: ${{ matrix.artifact_path }}
+          retention-days: 7
+
+      - name: Create GitHub Release and attach installers (secure)
+        uses: softprops/action-gh-release@69320dbe05506a9a39fc8ae11030b214ec2d1f87 # v2.0.5
+        if: startsWith(github.ref, 'refs/tags/')
+        with:
+          draft: true
+          prerelease: false
+          generate_release_notes: true
+          files: |
+            ${{ matrix.artifact_path }}
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+
+# Security notes (as expert in app sec & supply chain):
+# - Actions pinned to full SHA (not just tags) to prevent malicious tag moves.
+# - Minimal permissions.
+# - Builds happen in ephemeral GitHub runners (no persistent secrets leakage).
+# - For real signed releases (recommended against AV false positives and user trust):
+#   - Store code signing certs in GitHub Secrets or use a secrets manager.
+#   - On mac: notarize the dmg (requires Apple ID + app-specific password + hardened entitlements - already configured in package.json).
+#   - Consider using a separate "release-please" or manual approval before publishing the draft release.
+# - Team members should verify hashes of downloaded installers when possible.
+# - This produces unsigned builds by default (common for internal/team tools). Users on mac may need to right-click > Open first time.

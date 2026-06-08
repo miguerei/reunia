@@ -741,8 +741,13 @@ function ensureStorage() {
 }
 
 app.whenReady().then(() => {
-  // Init store
-  store = new Store<AppSettings>({ name: 'reunia-settings' })
+  // Init store with encryption for the OpenAI key and other settings (protects against casual inspection of the JSON file in userData).
+  // Note (cybersecurity): This is symmetric encryption with a fixed key (obfuscation, not HSM-level). A local attacker with debugger or the key can still read it.
+  // For higher security, consider keytar (OS keychain) in a future version. The app remains local-first with no telemetry.
+  store = new Store<AppSettings>({
+    name: 'reunia-settings',
+    encryptionKey: 'reunia-secure-local-v1' // Fixed per-app key for at-rest protection of API keys
+  })
 
   // Load persisted preferred recording mode (compact/stealth support for low-distraction)
   const storedMode = store.get('preferredRecordingMode') as any
