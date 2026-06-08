@@ -1,0 +1,95 @@
+{
+  "name": "reunia",
+  "productName": "ReunIA",
+  "version": "0.1.0",
+  "description": "Grabador de reuniones con IA. Registra audio del PC y llamadas (Google Meet, etc), transcribe y genera informes inteligentes con insights, resúmenes, participantes, to-dos y recomendaciones.",
+  "private": true,
+  "type": "module",
+  "main": "dist-electron/main.js",
+  "scripts": {
+    "dev": "vite",
+    "build": "vite build",
+    "preview": "vite preview",
+    "lint": "eslint .",
+    "electron:dev": "npx electron dist-electron/main.js",
+    "dist:mac": "npm run build && tsc -p tsconfig.electron.json && electron-builder --mac --x64 --arm64",
+    "dist:win": "npm run build && tsc -p tsconfig.electron.json && electron-builder --win"
+  },
+  "build": {
+    "appId": "com.miguelreina.reunia",
+    "productName": "ReunIA",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "dist/**/*",
+      "dist-electron/**/*"
+    ],
+    "mac": {
+      "icon": "build/icon.icns",
+      "category": "public.app-category.productivity",
+      "target": [
+        {
+          "target": "dmg",
+          "arch": [
+            "x64",
+            "arm64"
+          ]
+        }
+      ],
+      "hardenedRuntime": true,
+      "gatekeeperAssess": false,
+      "entitlements": "build/entitlements.mac.plist",
+      "entitlementsInherit": "build/entitlements.mac.plist"
+    },
+    "win": {
+      "icon": "build/icon.ico",
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64",
+            "ia32"
+          ]
+        }
+      ]
+    },
+    "publish": null
+  },
+  "dependencies": {
+    "date-fns": "^3.6.0",
+    "electron-store": "^8.2.0",
+    "file-saver": "^2.0.5",
+    "framer-motion": "^11.18.2",
+    "jszip": "^3.10.1",
+    "lucide-react": "^0.511.0",
+    "openai": "^4.104.0",
+    "react": "^19.2.6",
+    "react-dom": "^19.2.6",
+    "react-markdown": "^9.1.0",
+    "remark-gfm": "^4.0.1",
+    "sonner": "^2.0.3",
+    "wavesurfer.js": "^7.9.5",
+    "zustand": "^5.0.5"
+  },
+  "devDependencies": {
+    "@eslint/js": "^10.0.1",
+    "@types/file-saver": "^2.0.7",
+    "@types/node": "^24.12.3",
+    "@types/react": "^19.2.14",
+    "@types/react-dom": "^19.2.3",
+    "@vitejs/plugin-react": "^4.3.4",
+    "autoprefixer": "^10.4.21",
+    "electron": "^31.7.7",
+    "electron-builder": "^25.1.8",
+    "eslint": "^10.3.0",
+    "eslint-plugin-react-hooks": "^7.1.1",
+    "eslint-plugin-react-refresh": "^0.5.2",
+    "globals": "^17.6.0",
+    "postcss": "^8.5.3",
+    "tailwindcss": "^3.4.17",
+    "typescript": "~5.8.3",
+    "typescript-eslint": "^8.59.2",
+    "vite": "^5.4.19"
+  }
+}

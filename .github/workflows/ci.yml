@@ -1,0 +1,38 @@
+name: CI
+
+on:
+  push:
+    branches: [ main, master ]
+  pull_request:
+    branches: [ main, master ]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+
+      - name: Install dependencies
+        run: npm ci --legacy-peer-deps
+
+      - name: Type check (renderer)
+        run: npx tsc --noEmit -p tsconfig.app.json --skipLibCheck
+
+      - name: Type check (electron)
+        run: npx tsc --noEmit -p tsconfig.electron.json --skipLibCheck
+
+      - name: Lint
+        run: npm run lint
+
+      - name: Build renderer
+        run: npm run build
+
+      - name: Build electron main (compile TS)
+        run: npx tsc -p tsconfig.electron.json

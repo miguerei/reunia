@@ -1,0 +1,59 @@
+# Logs
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+pnpm-debug.log*
+lerna-debug.log*
+
+# Dependencies
+node_modules
+
+# Build outputs (Vite + Electron)
+dist
+dist-ssr
+dist-electron
+release
+*.local
+
+# Electron builder artifacts
+*.dmg
+*.exe
+*.app
+*.zip
+*.blockmap
+*.7z
+*.nsis
+
+# Environment / secrets (never commit keys)
+.env
+.env.local
+.env.*.local
+
+# Editor directories and files
+.vscode/*
+!.vscode/extensions.json
+.idea
+.DS_Store
+*.suo
+*.ntvs*
+*.njsproj
+*.sln
+*.sw?
+
+# OS
+Thumbs.db
+Desktop.ini
+
+# Misc (Electron / builder cache, temp)
+*.log
+*.cache
+electron-builder.yml
+*.pem
+*.key
+
+# Project specific
+# (add any local test recordings if you ever create them outside Documents/ReunIA)
+# test-*.webm
+# temp/

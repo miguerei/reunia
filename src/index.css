@@ -1,0 +1,364 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  --accent: #7c3aed;
+  --accent-hover: #6d28d9;
+}
+
+body {
+  @apply bg-bg text-text-primary font-sans antialiased;
+  margin: 0;
+  overflow: hidden;
+}
+
+#root {
+  height: 100vh;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Professional dark UI for meetings */
+.card {
+  @apply bg-bg-card border border-white/10 rounded-2xl transition-all;
+}
+.card:hover {
+  @apply border-white/20 bg-bg-hover;
+}
+
+.btn {
+  @apply inline-flex items-center justify-center gap-2 px-4 py-2 rounded-xl font-medium transition-all active:scale-[0.985] disabled:opacity-50 disabled:pointer-events-none;
+}
+.btn-primary {
+  @apply bg-accent hover:bg-accent-hover text-white shadow-lg shadow-accent/30;
+}
+.btn-secondary {
+  @apply bg-white/5 hover:bg-white/10 border border-white/10 text-text-primary;
+}
+.btn-danger {
+  @apply bg-red-600/90 hover:bg-red-600 text-white;
+}
+.btn-ghost {
+  @apply hover:bg-white/5 text-text-secondary hover:text-text-primary;
+}
+
+.input {
+  @apply w-full bg-bg-secondary border border-white/10 rounded-xl px-4 py-2.5 text-sm placeholder:text-text-muted focus:outline-none focus:border-accent/60;
+}
+
+.section-title {
+  @apply text-sm font-semibold uppercase tracking-widest text-text-muted mb-3;
+}
+
+.recording-dot {
+  @apply w-3 h-3 bg-red-500 rounded-full animate-pulse;
+}
+
+/* ===================== VOICE INPUT (live ask, meeting-ready) ===================== */
+/* Prominent easy-tap mic (normal/compact/small variants via component), pulsing red when listening,
+   live CSS waveform (no canvas/deps), interim preview, auto on final or silence-pause, es-ES.
+   Works in full panel, compact pill, stealth, and companion PiP. Respects focus/memory/phases. */
+.voice-mic {
+  @apply w-10 h-10 flex items-center justify-center rounded-xl border transition-all active:scale-[0.96] focus:outline-none focus:ring-2 focus:ring-accent/50;
+  background: rgba(255,255,255,0.06);
+  border-color: rgba(255,255,255,0.12);
+  color: #e2e8f0;
+}
+.voice-mic:hover {
+  background: rgba(255,255,255,0.1);
+  border-color: rgba(255,255,255,0.25);
+}
+.voice-mic.listening {
+  background: rgba(239, 68, 68, 0.15);
+  border-color: #ef4444;
+  color: #fca5a5;
+  box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15);
+  animation: mic-pulse-ring 1.6s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+.voice-mic .mic-icon {
+  transition: transform 120ms ease;
+}
+.voice-mic.listening .mic-icon {
+  transform: scale(1.05);
+}
+
+@keyframes mic-pulse-ring {
+  0%, 100% { box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.15); }
+  50% { box-shadow: 0 0 0 10px rgba(239, 68, 68, 0.08); }
+}
+
+/* Simple CSS waveform bars for live listening visual (no canvas, zero deps) */
+.voice-wave {
+  @apply flex items-center gap-0.5 h-4 px-1;
+}
+.voice-bar {
+  @apply w-1 bg-red-400/90 rounded-full;
+  height: 4px;
+  animation: voice-wave-scale 900ms ease-in-out infinite;
+}
+.voice-bar:nth-child(2) { animation-delay: 120ms; }
+.voice-bar:nth-child(3) { animation-delay: 240ms; }
+.voice-bar:nth-child(4) { animation-delay: 60ms; }
+
+@keyframes voice-wave-scale {
+  0%, 100% { height: 4px; }
+  50% { height: 14px; }
+}
+
+/* Reactive / dynamic waveform support (VoiceWave component uses level to control height in real time).
+   High-impact for voice UX: bars actually respond to how loud/soft you speak (brillante glanceable feedback).
+   .dynamic disables the pure loop animation so height style wins; smooth transition already in component. */
+.voice-bar.dynamic {
+  animation: none !important;
+  will-change: height;
+}
+.voice-wave-active .voice-bar {
+  /* extra pop when speech detected */
+  filter: saturate(1.1);
+}
+.voice-bar-mini {
+  /* companion/pill mini variant alignment */
+  width: 1.5px;
+}
+
+/* Mini waveform used in ultra-compact pill/stealth for low-distraction but clear "Escuchando" state */
+.voice-wave.mini {
+  @apply h-3 gap-[1px] px-0.5;
+}
+.voice-wave.mini .voice-bar {
+  @apply w-0.5 bg-red-400/95;
+  /* base for legacy; dynamic instances override height via inline + .dynamic */
+  height: 2.5px;
+}
+.voice-wave.mini .voice-bar:not(.dynamic) {
+  animation: voice-wave-scale-mini 650ms ease-in-out infinite;
+}
+.voice-wave.mini .voice-bar:nth-child(2):not(.dynamic) { animation-delay: 90ms; }
+.voice-wave.mini .voice-bar:nth-child(3):not(.dynamic) { animation-delay: 180ms; }
+
+@keyframes voice-wave-scale-mini {
+  0%, 100% { height: 2px; }
+  50% { height: 9px; }
+}
+
+.voice-status {
+  @apply flex items-center gap-2 text-xs px-2.5 py-1.5 rounded-xl bg-red-500/10 border border-red-500/20 text-red-400 mb-2;
+}
+.voice-interim {
+  @apply text-red-300/90 font-medium truncate max-w-[420px];
+}
+
+/* Delightful visual state for the live ask input(s) while voice is actively capturing (low cognitive load: glanceable "voice mode").
+   Works for both full panel and compact pill. Subtle red accent matching the listening palette without alarm. */
+.input.voice-input-active,
+.input.voice-input-active:focus {
+  @apply border-red-400/60;
+  box-shadow: 0 0 0 3px rgba(239, 68, 68, 0.12);
+  transition: box-shadow 120ms ease, border-color 120ms ease;
+}
+
+/* Dim suggestion chips during active voice listening: reduces choice overload for hands-busy "just speak" flow.
+   Still fully interactive (click stops voice + uses chip) so power users aren't blocked. */
+.suggestions-voice-dim {
+  opacity: 0.45;
+  pointer-events: auto; /* still clickable to interrupt gracefully */
+  transition: opacity 150ms ease;
+}
+.suggestions-voice-dim:hover {
+  opacity: 0.7;
+}
+
+/* Extra polish for voice in ultra-compact / companion / stealth (larger hit area already via component + mini wave) */
+.voice-mic:focus-visible {
+  @apply ring-2 ring-accent/60;
+}
+.voice-mic.listening {
+  /* stronger pulse for meeting visibility without being alarming */
+  animation: mic-pulse-ring 1.4s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+  transition: transform 70ms ease-out, box-shadow 120ms ease;
+}
+
+/* Reactive volume makes the mic "breathe" with speech (paired with inline scale from hook level). Glanceable during hands-busy. */
+.voice-mic.listening {
+  will-change: transform;
+}
+
+/* Extra high-impact polish for voice UX in meetings: when listening the whole status/pill bar gets a subtle live "hearing" ring that intensifies with volume (via sibling wave, but static base here). */
+.voice-status, .live-pill .pill-bar:has(.voice-wave) {
+  transition: box-shadow 80ms ease, border-color 80ms ease;
+}
+.voice-wave-active + span,
+.voice-status:has(.voice-wave-active) {
+  /* gentle pop when speech energy detected */
+  text-shadow: 0 0 3px rgba(239,68,68,0.2);
+}
+
+/* Banner-level voice indicator (always-visible during rec even in collapsed/stealth) uses mini wave + red tint for state clarity without adding cognitive load */
+.banner-voice-indicator {
+  font-size: 9px;
+  line-height: 1;
+}
+.banner-voice-indicator .voice-wave.mini {
+  /* slightly more visible bars on the colored recording banners */
+  opacity: 0.95;
+}
+
+.report-section {
+  @apply card p-5 mb-4;
+}
+
+.report-section h3 {
+  @apply text-accent-light font-semibold mb-3 flex items-center gap-2 text-base;
+}
+
+.tag {
+  @apply inline-flex items-center px-2.5 py-0.5 rounded-full text-xs font-medium bg-accent/10 text-accent-light border border-accent/20;
+}
+
+/* Waveform container */
+#waveform {
+  @apply bg-bg-secondary rounded-xl overflow-hidden border border-white/10;
+}
+
+/* Scrollbars */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+::-webkit-scrollbar-thumb {
+  background: #3f4250;
+  border-radius: 3px;
+}
+::-webkit-scrollbar-thumb:hover {
+  background: #55586a;
+}
+
+/* ===================== FRAMELESS / COMPANION DRAG SUPPORT (for PiP always-on-top narrow window + main title) ===================== */
+/* .drag on titlebars (in App.tsx for main + CompanionLiveUI) makes frameless windows draggable per Electron.
+   Critical for moving the ~340px companion during screen shares / multi-monitor without title chrome.
+   Buttons/inputs inside must be no-drag so clicks work (standard pattern). */
+.drag {
+  -webkit-app-region: drag;
+  user-select: none;
+}
+/* Interactive children must not drag the window (clicks/taps must reach them). */
+.drag button,
+.drag input,
+.drag .no-drag,
+.drag [role="button"] {
+  -webkit-app-region: no-drag;
+  user-select: text; /* allow text select inside inputs if any */
+}
+
+/* ===================== COMPACT / STEALTH PILL (low-distraction docked bar for meetings) ===================== */
+/* Brighter tap targets, mode-tinted stealth, generous hit areas for copy/star/voice during hands-busy.
+   Consistent with violet/rose accents, works great with collapsed rail + banner. */
+.live-pill {
+  @apply border-b border-white/10 bg-bg-secondary/70 backdrop-blur p-1.5;
+}
+.live-pill .pill-inner {
+  @apply max-w-4xl mx-auto;
+}
+.live-pill .pill-bar {
+  @apply flex items-center gap-1.5 px-2 py-1.5 rounded-3xl border text-xs shadow-sm transition-all select-none;
+  position: relative;
+  /* High-impact polish for real meetings: stronger "docked pill" affordance (subtle inner highlight + depth) so glanceable even on external monitor / during screen share prep. */
+  box-shadow: 0 1px 2px rgba(0,0,0,0.2), inset 0 1px 0 rgba(255,255,255,0.06);
+  /* Even lower profile in stealth: slightly tighter + softer */
+  transition: all 120ms ease-out;
+}
+.live-pill .pill-bar::before {
+  content: '';
+  position: absolute;
+  left: 0;
+  top: 4px;
+  bottom: 4px;
+  width: 3px;
+  border-radius: 3px;
+  opacity: 0.85;
+}
+.live-pill.compact .pill-bar::before {
+  background: #fb7185; /* rose-400 for compact focus mode */
+}
+.live-pill.stealth .pill-bar {
+  @apply bg-violet-950/40 border-violet-500/20 text-violet-200/85;
+  box-shadow: 0 1px 2px rgba(0,0,0,0.15), inset 0 1px 0 rgba(167,139,250,0.08);
+  font-size: 11px; /* ultra low-distraction for stealth during long meetings */
+  padding-top: 3px;
+  padding-bottom: 3px;
+}
+.live-pill.stealth .pill-bar::before {
+  background: #a78bfa; /* violet-400 for stealth low-alarm */
+}
+.live-pill.compact .pill-bar {
+  @apply bg-bg/95 border-white/10;
+  /* Compact = "focus mode": slightly stronger border + rose-tinted subtle ring on hover for instant recognition during busy meetings. */
+}
+.live-pill.compact .pill-bar:hover {
+  @apply border-rose-400/30;
+  box-shadow: 0 1px 3px rgba(0,0,0,0.25), inset 0 1px 0 rgba(255,255,255,0.08);
+}
+.live-pill .pill-section {
+  @apply flex items-center gap-1.5;
+}
+.live-pill .summary-tap {
+  @apply flex-1 min-w-0 truncate text-text-secondary border-l border-white/10 pl-2 flex items-center gap-1 cursor-pointer hover:bg-white/5 rounded transition active:bg-white/10 active:scale-[0.992];
+}
+.live-pill .focus-chip {
+  @apply px-1.5 py-px text-[9px] rounded border transition active:scale-[0.96] hover:scale-[1.01] min-w-[26px] text-center;
+}
+.live-pill .focus-chip.active {
+  @apply bg-accent/15 border-accent text-accent shadow-sm;
+}
+.live-pill .focus-chip.inactive {
+  @apply bg-white/5 border-white/10 hover:border-white/30;
+}
+/* High-impact meeting UX: larger generous tap target + subtle pop on focus chips in pill (hands-busy / trackpad) */
+.live-pill .focus-chip:active {
+  transform: scale(0.94);
+}
+/* Autonomous polish: slightly roomier + bolder active chips in pill/compact for instant glance + precise tap during meetings (stealth inherits softer via parent) */
+.live-pill .focus-chip {
+  min-width: 28px;
+  padding-left: 6px;
+  padding-right: 6px;
+  font-weight: 500;
+}
+.live-pill .focus-chip.active {
+  font-weight: 600;
+  box-shadow: 0 0 0 1px rgba(124, 58, 237, 0.25);
+}
+.live-pill .pill-control {
+  @apply text-[10px] px-1.5 text-text-muted hover:text-accent border border-white/10 rounded shrink-0 active:scale-[0.985] transition;
+}
+
+/* High-impact during-meeting polish: larger generous tap targets in pill for copy/star/summary
+   (hands-busy, imprecise mouse/trackpad during screen share or lap use). Keeps bar ultra-compact.
+   Stealth uses softer tint for the hover affordance. */
+.live-pill .summary-tap {
+  @apply min-h-[26px] py-0.5 pl-2.5 pr-1; /* taller + padded hit area without extra width */
+}
+.live-pill .summary-tap .copy-star {
+  @apply p-1 -mx-0.5 rounded hover:bg-white/10 active:bg-white/20; /* bigger icon hit zones */
+}
+.live-pill.stealth .summary-tap:hover {
+  @apply bg-violet-950/30;
+}
+.live-pill .pill-control {
+  @apply px-2 py-px min-h-[22px]; /* slightly taller controls */
+}
+/* Mode badge in pill gets extra hit for cycle */
+.live-pill .pill-bar > .pill-section > button:first-child {
+  @apply px-2 py-1 -my-0.5; /* generous for mode cycle tap */
+}
+
+/* Extra low-distraction polish for stealth placeholder mini summary (added for value capture without leaving mode) */
+.stealth-mini-summary {
+  font-feature-settings: "tnum";
+}
+
+/* Companion PiP adapts to stealth (softer non-alarming violet low-profile) or compact (rose focus) when primary is in that mode. Keeps minimal footprint. */
+.companion-stealth {
+  --accent: #a78bfa;
+}
