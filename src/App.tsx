@@ -547,7 +547,8 @@ function CompanionLiveUI({ onAsk, onClose }: {
       {/* Title bar (frameless window, draggable via css if wanted) */}
       <div className="h-8 bg-bg-secondary/90 flex items-center justify-between px-2 text-[10px] border-b border-white/10 drag">
         <div className="flex items-center gap-1.5 font-medium">
-          <span className="text-violet-400">●</span> ReunIA <span className="text-text-muted">compañero</span>
+          <img src="/reunia-logo.png" alt="ReunIA" className="w-4 h-4 rounded object-contain" onError={(e) => { (e.target as HTMLImageElement).src = '/reunia-logo.svg'; }} />
+          <span>ReunIA <span className="text-text-muted">compañero</span></span>
           {primaryMode !== 'normal' && <span className="text-[8px] px-1 py-px rounded bg-white/10 text-text-muted/70">{primaryMode}</span>}
           {/* Cycle mode directly from PiP (high-impact autonomous enhancement).
               Uses existing setPreferredRecordingMode IPC (no new channels). Forwards to primary for full state + tray/global sync.
@@ -1945,9 +1946,12 @@ export default function ReunIA() {
       <div className="h-14 border-b border-white/10 bg-bg-secondary/80 backdrop-blur flex items-center justify-between px-4 drag">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <div className="w-8 h-8 rounded-xl bg-gradient-to-br from-accent to-violet-500 flex items-center justify-center">
-              <Mic className="w-4 h-4 text-white" />
-            </div>
+            <img 
+              src="/reunia-logo.png" 
+              alt="ReunIA" 
+              className="w-8 h-8 rounded-xl object-contain ring-1 ring-white/10" 
+              onError={(e) => { (e.target as HTMLImageElement).src = '/reunia-logo.svg'; }}
+            />
             <div>
               <div className="font-semibold tracking-tight text-lg leading-none">ReunIA</div>
               <div className="text-[10px] text-text-muted -mt-0.5">Reuniones con inteligencia</div>
@@ -3003,8 +3007,8 @@ export default function ReunIA() {
             // Welcome / empty state
             <div className="flex-1 flex items-center justify-center p-8">
               <div className="max-w-md text-center">
-                <div className="mx-auto w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mb-6">
-                  <Mic className="w-8 h-8 text-accent" />
+                <div className="mx-auto w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mb-6 overflow-hidden ring-1 ring-white/10">
+                  <img src="/reunia-logo.png" alt="ReunIA" className="w-12 h-12 object-contain" onError={(e) => { (e.target as HTMLImageElement).src = '/reunia-logo.svg'; }} />
                 </div>
                 <h1 className="text-3xl font-semibold tracking-tight mb-2">Bienvenido a ReunIA</h1>
                 <p className="text-text-secondary mb-8">

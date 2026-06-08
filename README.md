@@ -1,7 +1,16 @@
 # ReunIA
 
-**Grabador de reuniones con inteligencia artificial para equipos.**  
-Un clic (o atajo global) y graba audio del micrófono + del sistema (Google Meet, Zoom, etc.). La IA genera informes completos: resumen, insights clave, asistentes, recomendaciones, consejos y to-do list.
+<div align="center">
+  <img src="public/reunia-logo.png" width="120" alt="ReunIA Logo" />
+  <br><br>
+  <h3>Grabador de reuniones con IA • 100% local</h3>
+  <p>
+    <a href="preview.html">📸 Ver vista previa interactiva</a> &nbsp;•&nbsp; 
+    <a href="https://github.com/miguelreina/reunia">GitHub</a>
+  </p>
+</div>
+
+**Un clic (o atajo global) y graba audio del micrófono + del sistema (Google Meet, Zoom, etc.).** La IA genera informes completos: resumen, insights clave, asistentes, recomendaciones, consejos y to-do list.
 
 Todo **local-first**: tus grabaciones y memoria quedan en tu PC. Cada miembro del equipo instala y usa su propia cuenta (OpenAI key personal o su propia instancia de Ollama).
 
