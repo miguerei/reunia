@@ -756,6 +756,7 @@ export default function ReunIA() {
   // One-time first-run onboarding flag (per app session). Opens Ajustes automatically
   // for new team members so they can paste their OpenAI key or switch to Ollama immediately.
   const [didFirstRunCheck, setDidFirstRunCheck] = useState(false)
+  const [showOnboarding, setShowOnboarding] = useState(false)
 
   // Secure update status (events come only from main process via IPC)
   const [updateStatus, setUpdateStatus] = useState<any>(null)
@@ -1029,6 +1030,15 @@ export default function ReunIA() {
       setDidFirstRunCheck(true);
     }
   }, [settings, didFirstRunCheck, setSettingsOpen]);
+
+  // Show friendly onboarding modal the very first time (when there are no sessions yet)
+  useEffect(() => {
+    if (sessions.length === 0 && !showOnboarding && didFirstRunCheck) {
+      // Small delay so the UI settles
+      const t = setTimeout(() => setShowOnboarding(true), 1200);
+      return () => clearTimeout(t);
+    }
+  }, [sessions.length, showOnboarding, didFirstRunCheck]);
 
   // Listen to global hotkey / tray toggles from main
   useEffect(() => {
@@ -1382,36 +1392,61 @@ export default function ReunIA() {
     }
   }, [waveSurfer])
 
-  // Load audio for selected saved session securely via main process (ArrayBuffer -> Blob URL)
-  // This ensures renderer never has direct filesystem access. Path validation + sanitization happens in main.
+  // Load audio + full report/transcript for selected saved session securely via main process.
+  // This is the key piece that makes past meetings deliver the complete visual report the user asked for.
   useEffect(() => {
-    if (!selectedSession || !waveSurfer) return
+    if (!selectedSession) return
     const api = (window as any).electron
-    // Prefer disk audio for past sessions (secure load)
-    if (selectedSession.folderPath && selectedSession.audioFileName && api?.loadAudio) {
-      api.loadAudio(selectedSession.folderPath, selectedSession.audioFileName).then((ab: ArrayBuffer | null) => {
-        if (ab && waveSurfer) {
-          const blob = new Blob([ab], { type: 'audio/webm' })
-          const url = URL.createObjectURL(blob)
-          // cleanup previous
+
+    // 1. Load audio for wavesurfer (secure)
+    if (waveSurfer) {
+      if (selectedSession.folderPath && selectedSession.audioFileName && api?.loadAudio) {
+        api.loadAudio(selectedSession.folderPath, selectedSession.audioFileName).then((ab: ArrayBuffer | null) => {
+          if (ab && waveSurfer) {
+            const blob = new Blob([ab], { type: 'audio/webm' })
+            const url = URL.createObjectURL(blob)
+            if (currentAudioUrl) URL.revokeObjectURL(currentAudioUrl)
+            // @ts-ignore
+            ;(window as any).__lastDiskAudioUrl = url
+            waveSurfer.load(url)
+          }
+        }).catch(() => {})
+      } else {
+        // Fallback to in-memory last recording
+        // @ts-ignore
+        const lastBlob: Blob | undefined = (window as any).__lastRecordingBlob
+        // @ts-ignore
+        const lastId = (window as any).__lastRecordingSessionId
+        if (lastBlob && lastId === selectedSession.id) {
+          const url = URL.createObjectURL(lastBlob)
           if (currentAudioUrl) URL.revokeObjectURL(currentAudioUrl)
-          // @ts-ignore - store for potential revoke (simplified)
-          ;(window as any).__lastDiskAudioUrl = url
           waveSurfer.load(url)
         }
-      }).catch(() => {})
-      return
+      }
     }
-    // Fallback to in-memory last recording blob (for just-finished sessions)
-    // @ts-ignore
-    const lastBlob: Blob | undefined = (window as any).__lastRecordingBlob
-    // @ts-ignore
-    const lastId = (window as any).__lastRecordingSessionId
-    if (lastBlob && lastId === selectedSession.id && waveSurfer) {
-      const url = URL.createObjectURL(lastBlob)
-      if (currentAudioUrl) URL.revokeObjectURL(currentAudioUrl)
-      waveSurfer.load(url)
+
+    // 2. Load full report + transcript from disk for rich detail view (critical for past meetings)
+    const loadSavedData = async () => {
+      if (!selectedSession.folderPath || (!selectedSession.hasReport && !selectedSession.hasTranscript)) {
+        // Not a saved session with files, or it's the just-processed one (data already in currentSessionData)
+        return
+      }
+      try {
+        const [loadedReport, loadedTranscript] = await Promise.all([
+          selectedSession.hasReport && api?.loadReport ? api.loadReport(selectedSession.folderPath) : null,
+          selectedSession.hasTranscript && api?.loadTranscript ? api.loadTranscript(selectedSession.folderPath) : null,
+        ])
+        if (loadedReport || loadedTranscript) {
+          setCurrentSessionData({
+            transcript: loadedTranscript || undefined,
+            report: loadedReport || undefined,
+          })
+        }
+      } catch (e) {
+        console.warn('Failed to load saved report/transcript', e)
+      }
     }
+    loadSavedData()
   }, [selectedSession, waveSurfer])
 
   const filteredSessions = sessions
@@ -3049,28 +3084,35 @@ export default function ReunIA() {
                   </div>
                 </div>
 
-                <div className="flex gap-2">
+                <div className="flex gap-2 flex-wrap">
                   <button onClick={() => processWithAI(selectedSession)} disabled={isProcessing} className="btn btn-primary">
                     {isProcessing && processingSessionId === selectedSession.id ? (
                       <><RefreshCw className="w-4 h-4 animate-spin" /> Procesando...</>
                     ) : (
-                      <><Lightbulb className="w-4 h-4" /> Generar informe con {settings.aiProvider === 'ollama' ? 'Ollama' : 'IA'}</>
+                      <><Lightbulb className="w-4 h-4" /> Generar / Re-generar informe
                     )}
                   </button>
 
-                  <button onClick={handleSaveCurrentSession} className="btn btn-secondary">
+                  <button onClick={handleSaveCurrentSession} className="btn btn-secondary" title="Guarda el audio + informe en la carpeta elegida (subcarpeta por fecha)">
                     <FolderOpen className="w-4 h-4" /> Guardar en carpeta
                   </button>
 
-                  <button onClick={() => exportReport(selectedSession)} className="btn btn-secondary">
-                    <Download className="w-4 h-4" /> Exportar MD
+                  <button onClick={async () => {
+                    if (selectedSession.folderPath) {
+                      const api = (window as any).electron
+                      if (api?.openPath) await api.openPath(selectedSession.folderPath)
+                    } else {
+                      handleSaveCurrentSession()
+                    }
+                  }} className="btn btn-secondary" title="Abre la carpeta donde está guardada esta sesión">
+                    <FolderOpen className="w-4 h-4" /> Abrir carpeta
                   </button>
-                  <button onClick={() => exportDocx(selectedSession)} className="btn btn-secondary">
-                    <Download className="w-4 h-4" /> DOCX
-                  </button>
-                  <button onClick={() => exportPdf(selectedSession)} className="btn btn-secondary">
-                    <Download className="w-4 h-4" /> PDF
-                  </button>
+
+                  <div className="flex gap-1">
+                    <button onClick={() => exportReport(selectedSession)} className="btn btn-secondary text-xs" title="Exportar Markdown">MD</button>
+                    <button onClick={() => exportDocx(selectedSession)} className="btn btn-secondary text-xs" title="Exportar Word">DOCX</button>
+                    <button onClick={() => exportPdf(selectedSession)} className="btn btn-secondary text-xs" title="Exportar PDF">PDF</button>
+                  </div>
 
                   <button onClick={() => { if (confirm('¿Eliminar esta sesión?')) deleteSession(selectedSession.id) }} className="btn btn-ghost text-red-400">
                     <Trash2 className="w-4 h-4" />
@@ -3280,7 +3322,7 @@ export default function ReunIA() {
               onClick={e => e.stopPropagation()}
             >
               <div className="text-xl font-semibold mb-1">Ajustes de ReunIA</div>
-              <p className="text-sm text-text-muted mb-6">La configuración se guarda automáticamente.</p>
+              <p className="text-sm text-text-muted mb-6">La configuración se guarda automáticamente. <span className="text-emerald-400/80">Todo (audio, informes y memoria) se queda solo en este equipo.</span></p>
 
               <div className="space-y-5">
                 {/* AI Provider */}
@@ -3554,7 +3596,17 @@ export default function ReunIA() {
 
               <div className="mt-6 pt-4 border-t border-white/10 flex justify-between text-sm">
                 <button onClick={() => setSettingsOpen(false)} className="btn btn-ghost">Cerrar</button>
-                <button onClick={() => { refreshDevices(); toast('Dispositivos actualizados') }} className="btn btn-secondary text-xs">Actualizar lista de micrófonos</button>
+                <div className="flex gap-2 items-center">
+                  <button onClick={async () => {
+                    const api = (window as any).electron
+                    if (api?.checkForUpdates) {
+                      toast('Buscando actualizaciones...')
+                      await api.checkForUpdates()
+                    }
+                  }} className="btn btn-secondary text-xs">Buscar actualizaciones</button>
+                  <button onClick={() => { refreshDevices(); toast('Dispositivos actualizados') }} className="btn btn-secondary text-xs">Actualizar micrófonos</button>
+                  <span className="text-[10px] text-text-muted ml-2">v{ (window as any).electron?.getAppVersion ? 'cargando...' : '0.1.0' }</span>
+                </div>
               </div>
 
               <div className="mt-4 p-3 bg-bg/60 rounded-xl text-xs text-text-muted leading-snug">
@@ -3591,6 +3643,54 @@ export default function ReunIA() {
                 <button className="btn btn-secondary flex-1" onClick={() => { setShowDevicePicker(false); handleStartRecording() }}>Usar dispositivo por defecto</button>
                 <button className="btn btn-ghost" onClick={() => setShowDevicePicker(false)}>Cancelar</button>
               </div>
+            </div>
+          </div>
+        )}
+      </AnimatePresence>
+
+      {/* Simple first-time onboarding modal - visual and easy to understand */}
+      <AnimatePresence>
+        {showOnboarding && (
+          <div className="fixed inset-0 bg-black/80 z-[70] flex items-center justify-center p-6" onClick={() => setShowOnboarding(false)}>
+            <div className="card max-w-lg w-full p-8" onClick={e => e.stopPropagation()}>
+              <div className="flex justify-between items-start mb-6">
+                <div>
+                  <div className="font-semibold text-2xl tracking-tight">¡Bienvenido a ReunIA!</div>
+                  <div className="text-text-muted text-sm">3 pasos para empezar a grabar reuniones con IA</div>
+                </div>
+                <button onClick={() => setShowOnboarding(false)} className="text-text-muted hover:text-white">✕</button>
+              </div>
+
+              <div className="space-y-5 text-sm">
+                <div className="flex gap-4">
+                  <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0 text-accent font-semibold">1</div>
+                  <div>
+                    <div className="font-medium">Graba con un clic</div>
+                    <div className="text-text-muted">Pulsa el botón grande o usa <span className="font-mono">Cmd/Ctrl + Shift + R</span>. Captura micrófono + audio del sistema (elige BlackHole o VB-Cable en Ajustes la primera vez).</div>
+                  </div>
+                </div>
+                <div className="flex gap-4">
+                  <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0 text-accent font-semibold">2</div>
+                  <div>
+                    <div className="font-medium">Pregunta en vivo mientras grabas</div>
+                    <div className="text-text-muted">En la caja "Asistente en vivo" escribe o usa voz (Cmd/Ctrl+Shift+V). La IA te responde con lo dicho en los últimos minutos. Usa los chips de foco y marca ★ las respuestas importantes.</div>
+                  </div>
+                </div>
+                <div className="flex gap-4">
+                  <div className="w-8 h-8 rounded-full bg-accent/10 flex items-center justify-center flex-shrink-0 text-accent font-semibold">3</div>
+                  <div>
+                    <div className="font-medium">Obtén el informe completo</div>
+                    <div className="text-text-muted">Al terminar genera el informe. Tendrás resumen, insights, asistentes, recomendaciones y to-do. Exporta a PDF/DOCX o abre la carpeta. Todo se organiza solo.</div>
+                  </div>
+                </div>
+              </div>
+
+              <div className="mt-8 flex gap-3">
+                <button onClick={() => { setShowOnboarding(false); setSettingsOpen(true); }} className="btn btn-primary flex-1">Abrir Ajustes ahora</button>
+                <button onClick={() => setShowOnboarding(false)} className="btn btn-secondary flex-1">Empezar a grabar</button>
+              </div>
+
+              <div className="text-[10px] text-center text-text-muted mt-4">Todo queda en tu equipo. 100% privado y seguro.</div>
             </div>
           </div>
         )}

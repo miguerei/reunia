@@ -126,25 +126,25 @@
     
     <p class="max-w-md mx-auto text-xl text-white/70 mt-4">
       La aplicación de escritorio que registra tus reuniones, responde en tiempo real y genera informes inteligentes con IA. 
-      Todo en tu equipo.
+      Todo en tu equipo. Privado, seguro y fácil de usar.
     </p>
 
     <div class="flex items-center justify-center gap-x-3 mt-8">
-      <button onclick="document.getElementById('live-demo').scrollIntoView({ behavior: 'smooth' })" 
-              class="px-8 py-4 rounded-3xl bg-white text-black font-semibold flex items-center gap-x-2 hover:bg-white/90 transition-all text-base active:scale-[0.985]">
-        <i class="fa-solid fa-play mr-1"></i>
-        Ver demo interactiva
-      </button>
-      
-      <a href="https://github.com/miguelreina/reunia" target="_blank"
-         class="px-7 py-4 rounded-3xl border border-white/20 hover:bg-white/5 font-medium flex items-center gap-x-2 transition-colors text-base">
-        <i class="fa-brands fa-github"></i>
-        <span>Ver en GitHub</span>
+      <a href="https://github.com/miguelreina/reunia/releases" target="_blank"
+         class="px-8 py-4 rounded-3xl bg-white text-black font-semibold flex items-center gap-x-2 hover:bg-white/90 transition-all text-base active:scale-[0.985]">
+        <i class="fa-solid fa-download mr-1"></i>
+        Descargar ReunIA
       </a>
+      
+      <button onclick="document.getElementById('live-demo').scrollIntoView({ behavior: 'smooth' })" 
+              class="px-7 py-4 rounded-3xl border border-white/20 hover:bg-white/5 font-medium flex items-center gap-x-2 transition-colors text-base">
+        <i class="fa-solid fa-play"></i>
+        <span>Ver demo interactiva</span>
+      </button>
     </div>
     
     <div class="mt-4 text-xs text-white/50">
-      macOS • Windows • Open source
+      macOS • Windows • 100% local y privado • Open source
     </div>
   </div>
 
@@ -165,12 +165,43 @@
     </div>
   </div>
 
+  <!-- Onboarding / Cómo empezar -->
+  <div class="max-w-5xl mx-auto px-6 pb-16">
+    <div class="text-center mb-10">
+      <div class="section-header">ONBOARDING RÁPIDO</div>
+      <h2 class="font-display text-4xl font-semibold tracking-tight">Cómo empezar en 3 minutos</h2>
+      <p class="text-white/60 mt-2 max-w-md mx-auto">Diseñado para ser sencillo e intuitivo. Sin curva de aprendizaje complicada.</p>
+    </div>
+
+    <div class="grid md:grid-cols-3 gap-6">
+      <div class="bg-[#16181f] border border-white/10 rounded-3xl p-6">
+        <div class="text-2xl mb-3">1️⃣</div>
+        <div class="font-semibold mb-2">Instala y configura</div>
+        <div class="text-sm text-white/70">Descarga el instalador. Al abrir por primera vez se abre Ajustes. Elige Ollama (local y gratis) o pega tu clave OpenAI. Selecciona tu dispositivo de audio (BlackHole en Mac o VB-Cable en Windows para capturar el audio de la reunión).</div>
+      </div>
+      <div class="bg-[#16181f] border border-white/10 rounded-3xl p-6">
+        <div class="text-2xl mb-3">2️⃣</div>
+        <div class="font-semibold mb-2">Graba y pregunta en vivo</div>
+        <div class="text-sm text-white/70">Pulsa el botón grande o usa Cmd/Ctrl + Shift + R. Durante la reunión haz preguntas en la caja "Asistente en vivo". La IA te responde con lo que se ha dicho en los últimos minutos. Usa los chips de foco (Decisiones, Acciones...) para ser más preciso. Marca con ★ las respuestas importantes para que la app "aprenda" para futuras reuniones.</div>
+      </div>
+      <div class="bg-[#16181f] border border-white/10 rounded-3xl p-6">
+        <div class="text-2xl mb-3">3️⃣</div>
+        <div class="font-semibold mb-2">Obtén el informe y compártelo</div>
+        <div class="text-sm text-white/70">Al terminar, genera el informe con un clic. Tendrás resumen, insights, asistentes, recomendaciones, consejos y to-do list. Exporta a PDF, DOCX o MD. Todo se guarda automáticamente en subcarpetas organizadas. Abre la carpeta con un clic para acceder a audio + informe.</div>
+      </div>
+    </div>
+
+    <div class="mt-8 text-center text-xs text-white/50">
+      100% local • Tu memoria y grabaciones nunca salen de tu PC • Actualizaciones seguras automáticas
+    </div>
+  </div>
+
   <!-- Additional UI States Mockups -->
   <div class="max-w-7xl mx-auto px-6 pb-16">
     <div class="mb-8">
       <div class="section-header">MÁS ESTADOS DE LA UI</div>
       <h2 class="font-display text-3xl font-semibold tracking-tight">Explora los diferentes modos y pantallas</h2>
-      <p class="text-white/60 mt-1">Mockups de alta fidelidad de los principales estados de ReunIA.</p>
+      <p class="text-white/60 mt-1">Mockups de alta fidelidad de los principales estados de ReunIA. Puedes usar estos assets como base para iterar el diseño en <a href="https://figma.com" target="_blank" class="underline">Figma</a>.</p>
     </div>
 
     <div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-5">

@@ -613,6 +613,42 @@ function setupIpc() {
     }
   })
 
+  // Secure loader for full report (used when selecting a saved session from the library).
+  // Returns the parsed Report so the rich visual report (insights, to-dos, etc.) works for past meetings.
+  ipcMain.handle('report:load', async (_e, folderPath: string) => {
+    try {
+      if (!folderPath) return null
+      const reportPath = join(folderPath, 'report.json')
+      const resolved = path.resolve(reportPath)
+      const resolvedFolder = path.resolve(folderPath)
+      if (!resolved.startsWith(resolvedFolder) || !existsSync(resolved)) return null
+      const stat = statSync(resolved)
+      if (!stat.isFile() || stat.size > 2 * 1024 * 1024) return null // 2MB safety
+      const raw = readFileSync(resolved, 'utf8')
+      return JSON.parse(raw)
+    } catch (e) {
+      console.error('report:load error', e)
+      return null
+    }
+  })
+
+  // Secure loader for transcript text of a saved session.
+  ipcMain.handle('transcript:load', async (_e, folderPath: string) => {
+    try {
+      if (!folderPath) return null
+      const transcriptPath = join(folderPath, 'transcript.txt')
+      const resolved = path.resolve(transcriptPath)
+      const resolvedFolder = path.resolve(folderPath)
+      if (!resolved.startsWith(resolvedFolder) || !existsSync(resolved)) return null
+      const stat = statSync(resolved)
+      if (!stat.isFile() || stat.size > 50 * 1024 * 1024) return null
+      return readFileSync(resolved, 'utf8')
+    } catch (e) {
+      console.error('transcript:load error', e)
+      return null
+    }
+  })
+
   // Memory index (local-only JSON in userData for self-improvement seeds)
   function getMemoryPath() {
     return join(app.getPath('userData'), 'reunia-memory.json')

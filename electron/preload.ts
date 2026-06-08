@@ -31,6 +31,9 @@ export type ElectronAPI = {
   listSessions: () => Promise<any[]>,
   // Secure audio loader for saved sessions playback (main process only reads the file, returns ArrayBuffer)
   loadAudio: (folderPath: string, audioFileName: string) => Promise<ArrayBuffer | null>,
+  // Load full structured report and transcript for a saved session (so past meetings show the complete visual report)
+  loadReport: (folderPath: string) => Promise<any | null>,
+  loadTranscript: (folderPath: string) => Promise<string | null>,
 
   // Lightweight local memory index for self-improvement (stays 100% on device, never sent anywhere)
   loadMemory: () => Promise<any[]>,
@@ -115,6 +118,8 @@ const electronAPI: ElectronAPI = {
   // Sessions from disk (ensures liveQAs with starred / focusUsed / tags survive restarts via metadata.json round-trip)
   listSessions: () => ipcRenderer.invoke('sessions:list'),
   loadAudio: (folderPath, audioFileName) => ipcRenderer.invoke('audio:load', folderPath, audioFileName),
+  loadReport: (folderPath) => ipcRenderer.invoke('report:load', folderPath),
+  loadTranscript: (folderPath) => ipcRenderer.invoke('transcript:load', folderPath),
 
   // Lightweight local memory index for self-improvement (stays 100% on device, never sent anywhere)
   // clearMemory: full end-to-end for clearing local reunia-memory.json (renderer->preload->main->fs)
