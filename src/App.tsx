@@ -14,6 +14,7 @@ import { useStore } from './store'
 import type { Session, Report, RecordingMode } from './types'
 import { generateReport, getFocusLabel } from './lib/ai'
 import { saveSessionToDisk, createSessionFolderName } from './lib/storage'
+import * as fileSaver from 'file-saver'
 import { retrieveRelevantAsync, entriesToPromptSnippets, indexStarredFromSession, indexReportInsights, getCachedMemory } from './lib/memory'
 
 // Simple audio device picker (populated at runtime)
@@ -1356,12 +1357,60 @@ export default function ReunIA() {
     }
   }, [currentAudioUrl])
 
-  // Initialize waveform when we have a selected session with playable audio
+  // Initialize wavesurfer once (secure container, no direct FS)
+  useEffect(() => {
+    if (waveSurfer) return
+    const container = document.getElementById('waveform')
+    if (!container) return
+    const ws = WaveSurfer.create({
+      container: container as HTMLElement,
+      waveColor: '#6366f1',
+      progressColor: '#a5b4fc',
+      height: 80,
+      barWidth: 2,
+      barGap: 1,
+      barRadius: 2,
+    })
+    _setWaveSurfer(ws)
+    // sync play state
+    ws.on('play', () => setIsPlaying(true))
+    ws.on('pause', () => setIsPlaying(false))
+    ws.on('finish', () => setIsPlaying(false))
+    return () => {
+      ws.destroy()
+    }
+  }, [waveSurfer])
+
+  // Load audio for selected saved session securely via main process (ArrayBuffer -> Blob URL)
+  // This ensures renderer never has direct filesystem access. Path validation + sanitization happens in main.
   useEffect(() => {
     if (!selectedSession || !waveSurfer) return
-
-    // If we have a blob in memory for the current recording (rare after save), or try to load from disk later
-    // For MVP we support playing the last recorded blob if present in window
+    const api = (window as any).electron
+    // Prefer disk audio for past sessions (secure load)
+    if (selectedSession.folderPath && selectedSession.audioFileName && api?.loadAudio) {
+      api.loadAudio(selectedSession.folderPath, selectedSession.audioFileName).then((ab: ArrayBuffer | null) => {
+        if (ab && waveSurfer) {
+          const blob = new Blob([ab], { type: 'audio/webm' })
+          const url = URL.createObjectURL(blob)
+          // cleanup previous
+          if (currentAudioUrl) URL.revokeObjectURL(currentAudioUrl)
+          // @ts-ignore - store for potential revoke (simplified)
+          ;(window as any).__lastDiskAudioUrl = url
+          waveSurfer.load(url)
+        }
+      }).catch(() => {})
+      return
+    }
+    // Fallback to in-memory last recording blob (for just-finished sessions)
+    // @ts-ignore
+    const lastBlob: Blob | undefined = (window as any).__lastRecordingBlob
+    // @ts-ignore
+    const lastId = (window as any).__lastRecordingSessionId
+    if (lastBlob && lastId === selectedSession.id && waveSurfer) {
+      const url = URL.createObjectURL(lastBlob)
+      if (currentAudioUrl) URL.revokeObjectURL(currentAudioUrl)
+      waveSurfer.load(url)
+    }
   }, [selectedSession, waveSurfer])
 
   const filteredSessions = sessions
@@ -1536,22 +1585,22 @@ export default function ReunIA() {
     }
   }
 
-  // ===================== AUDIO PLAYBACK (simple + waveform) =====================
+  // ===================== AUDIO PLAYBACK (wavesurfer for saved sessions + secure disk load) =====================
   function togglePlayback() {
+    if (waveSurfer) {
+      // Preferred: use wavesurfer for visualization + playback (works for both lastBlob and disk-loaded)
+      waveSurfer.playPause()
+      return
+    }
+    // Fallback (should rarely hit now)
     // @ts-ignore
     const lastBlob: Blob | undefined = (window as any).__lastRecordingBlob
-    // @ts-ignore
-    const lastId = (window as any).__lastRecordingSessionId
-
-    const blobToPlay = (selectedSession && lastId === selectedSession.id && lastBlob) ? lastBlob : lastBlob
-
-    if (blobToPlay) {
+    if (lastBlob) {
       if (isPlaying) {
-        // crude stop - we recreate Audio each time for simplicity
         setIsPlaying(false)
         return
       }
-      const url = URL.createObjectURL(blobToPlay)
+      const url = URL.createObjectURL(lastBlob)
       const audio = new Audio(url)
       audio.play()
       setIsPlaying(true)
@@ -1561,9 +1610,8 @@ export default function ReunIA() {
       }
       return
     }
-
     if (!selectedSession) return
-    toast.info('Reproducción de sesiones guardadas en disco se añadirá pronto. Graba una nueva para probar audio + IA ahora mismo.')
+    toast.info('No hay audio cargado para esta sesión.')
   }
 
   // ===================== SAVE / EXPORT =====================
@@ -1604,6 +1652,87 @@ export default function ReunIA() {
     a.download = `${session.title.replace(/\s+/g, '_')}.md`
     a.click()
     URL.revokeObjectURL(url)
+  }
+
+  // Secure export helpers (sanitization to strip control chars / null bytes that could affect document parsers or trigger AV heuristics)
+  function sanitizeText(text: string | undefined | null): string {
+    if (!text) return ''
+    // Remove control characters (including null bytes) and cap length for safety
+    return text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').slice(0, 50000)
+  }
+  function safeFileName(name: string): string {
+    return sanitizeText(name).replace(/[^a-zA-Z0-9_-]/g, '_').slice(0, 80) || 'reunia-export'
+  }
+
+  // DOCX export using trusted 'docx' lib (structured builder, no template injection risk)
+  async function exportDocx(session: Session) {
+    const report = currentSessionData.report
+    if (!report) {
+      toast('Primero genera el informe con IA')
+      return
+    }
+    try {
+      const { Document, Packer, Paragraph, TextRun, HeadingLevel } = await import('docx')
+      const children: any[] = [
+        new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun(sanitizeText(session.title))] }),
+        new Paragraph({ children: [new TextRun(`Fecha: ${format(new Date(session.date), 'PPP p', { locale: es })} • Duración: ${Math.floor(session.durationSec / 60)} min`)] }),
+        new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun('Resumen')] }),
+        new Paragraph({ children: [new TextRun(sanitizeText(report.summary))] }),
+        new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun('Insights clave')] }),
+        ...report.keyInsights.map((i: string) => new Paragraph({ children: [new TextRun('• ' + sanitizeText(i))] })),
+        new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun('Personas asistentes')] }),
+        ... (report.attendees.length ? report.attendees.map((p: string) => new Paragraph({ children: [new TextRun('• ' + sanitizeText(p))]})) : [new Paragraph({ children: [new TextRun('_No detectadas_') ] })] ),
+        new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun('Recomendaciones')] }),
+        ...report.recommendations.map((r: string) => new Paragraph({ children: [new TextRun('• ' + sanitizeText(r))] })),
+        new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun('Consejos')] }),
+        ...report.advice.map((a: string) => new Paragraph({ children: [new TextRun('• ' + sanitizeText(a))] })),
+        new Paragraph({ heading: HeadingLevel.HEADING_2, children: [new TextRun('To-Do')] }),
+        ...report.todoList.map((t: any) => new Paragraph({ children: [new TextRun(`[${t.done ? 'x' : ' '}] ${sanitizeText(t.task)}`)] })),
+      ]
+      const doc = new Document({ sections: [{ children }] })
+      const blob = await Packer.toBlob(doc)
+      fileSaver.saveAs(blob, `${safeFileName(session.title)}.docx`)
+      toast.success('DOCX exportado de forma segura')
+    } catch (e) {
+      console.error(e)
+      toast.error('Error generando DOCX (¿instalaste las dependencias?)')
+    }
+  }
+
+  // PDF export using jspdf (light, safe text addition, no code exec)
+  async function exportPdf(session: Session) {
+    const report = currentSessionData.report
+    if (!report) {
+      toast('Primero genera el informe con IA')
+      return
+    }
+    try {
+      const jsPDF = (await import('jspdf')).default
+      const doc = new jsPDF()
+      let y = 20
+      const addText = (text: string, size = 12) => {
+        doc.setFontSize(size)
+        const lines = doc.splitTextToSize(sanitizeText(text), 180)
+        lines.forEach((line: string) => {
+          if (y > 280) { doc.addPage(); y = 20 }
+          doc.text(line, 10, y)
+          y += size * 0.5 + 2
+        })
+        y += 4
+      }
+      addText(session.title, 18)
+      addText(`Fecha: ${format(new Date(session.date), 'PPP p', { locale: es })} • ${Math.floor(session.durationSec/60)} min`, 10)
+      addText('Resumen', 14); addText(report.summary)
+      addText('Insights clave', 14); report.keyInsights.forEach((i: string) => addText('• ' + i, 11))
+      addText('Recomendaciones', 14); report.recommendations.forEach((r: string) => addText('• ' + r, 11))
+      addText('Consejos', 14); report.advice.forEach((a: string) => addText('• ' + a, 11))
+      addText('To-Do', 14); report.todoList.forEach((t: any) => addText(`[${t.done?'x':' '}] ${t.task}`, 11))
+      doc.save(`${safeFileName(session.title)}.pdf`)
+      toast.success('PDF exportado de forma segura')
+    } catch (e) {
+      console.error(e)
+      toast.error('Error generando PDF (¿npm install jspdf docx?)')
+    }
   }
 
   // Test Ollama connection (for option 3 - local mode)
@@ -2932,6 +3061,12 @@ export default function ReunIA() {
                   <button onClick={() => exportReport(selectedSession)} className="btn btn-secondary">
                     <Download className="w-4 h-4" /> Exportar MD
                   </button>
+                  <button onClick={() => exportDocx(selectedSession)} className="btn btn-secondary">
+                    <Download className="w-4 h-4" /> DOCX
+                  </button>
+                  <button onClick={() => exportPdf(selectedSession)} className="btn btn-secondary">
+                    <Download className="w-4 h-4" /> PDF
+                  </button>
 
                   <button onClick={() => { if (confirm('¿Eliminar esta sesión?')) deleteSession(selectedSession.id) }} className="btn btn-ghost text-red-400">
                     <Trash2 className="w-4 h-4" />
@@ -2951,9 +3086,10 @@ export default function ReunIA() {
                   Para capturar el audio que sale de Google Meet / Zoom, selecciona BlackHole (mac) o un cable virtual como VB-Cable (Windows) en el selector de dispositivos.
                 </div>
 
-                {/* Placeholder for real waveform - simple for now */}
-                <div id="waveform" className="h-20 flex items-center justify-center bg-bg/60 rounded-xl border border-white/10 text-xs text-text-muted">
-                  {recording.isRecording ? 'Grabando...' : 'Pulsa reproducir para escuchar la reunión (versión MVP usa memoria temporal)'}
+                {/* Real wavesurfer waveform - securely loads from disk for saved sessions via main IPC (ArrayBuffer) */}
+                <div id="waveform" className="h-20 bg-bg/60 rounded-xl border border-white/10 overflow-hidden" />
+                <div className="text-[10px] text-text-muted mt-1 text-center">
+                  {recording.isRecording ? 'Grabando...' : 'Reproducción con visualización de onda para sesiones guardadas (carga segura desde disco)'}
                 </div>
               </div>
 

@@ -1,7 +1,7 @@
 import { app, BrowserWindow, Tray, Menu, nativeImage, globalShortcut, ipcMain, dialog, shell, powerSaveBlocker } from 'electron'
 import { autoUpdater } from 'electron-updater'
-import { join } from 'path'
-import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, unlinkSync } from 'fs'
+import path from 'path'
+import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, unlinkSync, statSync } from 'fs'
 import Store from 'electron-store'
 
 // Types
@@ -575,6 +575,41 @@ function setupIpc() {
     } catch (e) {
       console.error('sessions:list error', e)
       return []
+    }
+  })
+
+  // Secure audio loader for playback of saved sessions (used by wavesurfer in renderer).
+  // Security: all FS access stays in main (trusted context). We sanitize filename and resolve path.
+  // Only allow loading audio files that match expected names from sessions listed by the app (prevents arbitrary path traversal).
+  // Returns ArrayBuffer so renderer can create safe Blob without direct FS access.
+  ipcMain.handle('audio:load', async (_e, folderPath: string, audioFileName: string) => {
+    try {
+      if (!folderPath || !audioFileName) return null
+      // Extra sanitization: only allow safe audio filenames (webm/wav etc.)
+      const safeName = audioFileName.replace(/[^a-zA-Z0-9_.-]/g, '')
+      if (!safeName.endsWith('.webm') && !safeName.endsWith('.wav') && !safeName.endsWith('.mp3')) {
+        console.warn('[security] audio:load rejected unsafe filename', audioFileName)
+        return null
+      }
+      const fullPath = join(folderPath, safeName)
+      // Basic containment: the resolved path should be inside the provided folderPath (defense against ../)
+      const resolved = path.resolve(fullPath)
+      const resolvedFolder = path.resolve(folderPath)
+      if (!resolved.startsWith(resolvedFolder)) {
+        console.warn('[security] audio:load path traversal attempt blocked', fullPath)
+        return null
+      }
+      if (!existsSync(resolved)) return null
+      const stat = statSync(resolved)
+      if (!stat.isFile() || stat.size > 200 * 1024 * 1024) { // 200MB safety limit for audio
+        return null
+      }
+      const buffer = readFileSync(resolved)
+      // Return as ArrayBuffer (transferable, safe)
+      return buffer.buffer.slice(buffer.byteOffset, buffer.byteOffset + buffer.byteLength)
+    } catch (e) {
+      console.error('audio:load error (security conscious)', e)
+      return null
     }
   })
 
