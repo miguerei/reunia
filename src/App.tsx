@@ -751,6 +751,10 @@ export default function ReunIA() {
   const [memorySearch, setMemorySearch] = useState('')
   const [memoryFilter, setMemoryFilter] = useState<'all' | 'starred'>('all')
 
+  // One-time first-run onboarding flag (per app session). Opens Ajustes automatically
+  // for new team members so they can paste their OpenAI key or switch to Ollama immediately.
+  const [didFirstRunCheck, setDidFirstRunCheck] = useState(false)
+
   // Proper ref + effect for auto-scrolling live Q&A history (replaces previous render-mutation hack)
   const liveHistoryRef = useRef<HTMLDivElement>(null)
 
@@ -987,6 +991,29 @@ export default function ReunIA() {
       setOllamaTestStatus({ loading: false, message: '' })
     }
   }, [isSettingsOpen, settings.aiProvider])
+
+  // First-run / team onboarding UX:
+  // When a new person installs and launches ReunIA for the first time on their PC,
+  // automatically open the Settings modal if they have no OpenAI key configured.
+  // This makes "cada uno con su cuenta" dead simple: launch → configure your key/Ollama → ready.
+  // Only happens once per app launch session (settings are persisted per user via electron-store).
+  useEffect(() => {
+    if (!didFirstRunCheck && settings) {
+      const isOpenAIWithoutKey = settings.aiProvider === 'openai' && !settings.openaiApiKey?.trim();
+      if (isOpenAIWithoutKey) {
+        const t = setTimeout(() => {
+          setSettingsOpen(true);
+          toast.info('Bienvenido a ReunIA', {
+            description: 'Configura tu clave de OpenAI o cambia a Ollama (local) en Ajustes para empezar. Cada miembro del equipo usa su propia cuenta y sus grabaciones quedan en su PC.',
+            duration: 7000,
+          });
+        }, 450);
+        setDidFirstRunCheck(true);
+        return () => clearTimeout(t);
+      }
+      setDidFirstRunCheck(true);
+    }
+  }, [settings, didFirstRunCheck, setSettingsOpen]);
 
   // Listen to global hotkey / tray toggles from main
   useEffect(() => {
@@ -2881,7 +2908,7 @@ export default function ReunIA() {
                   </button>
                 </div>
                 <div className="text-xs text-text-muted mb-2">
-                  Para capturar el audio de Google Meet / Zoom correctamente, selecciona BlackHole (o un dispositivo Aggregate) en el selector de dispositivos antes de grabar.
+                  Para capturar el audio que sale de Google Meet / Zoom, selecciona BlackHole (mac) o un cable virtual como VB-Cable (Windows) en el selector de dispositivos.
                 </div>
 
                 {/* Placeholder for real waveform - simple for now */}
@@ -3318,7 +3345,7 @@ export default function ReunIA() {
               </div>
 
               <div className="mt-4 p-3 bg-bg/60 rounded-xl text-xs text-text-muted leading-snug">
-                <strong>Importante para Google Meet:</strong> Para grabar el audio que sale de la reunión (y no solo tu micrófono), instala <strong>BlackHole</strong> (gratuito) y crea un dispositivo agregado o multi-salida en la Utilidad de Audio MIDI de macOS. Luego selecciona ese dispositivo antes de grabar.
+                <strong>Audio del sistema (Google Meet / Zoom):</strong> macOS → BlackHole + dispositivo agregado/multi-salida. Windows → VB-Cable u otro cable virtual. Selecciona el dispositivo correcto antes de grabar. Detalles completos en el README del repositorio.
               </div>
             </motion.div>
           </div>
@@ -3331,7 +3358,7 @@ export default function ReunIA() {
           <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-6" onClick={() => setShowDevicePicker(false)}>
             <div className="card w-full max-w-md p-5" onClick={e => e.stopPropagation()}>
               <div className="font-semibold mb-3">Elige dispositivo de entrada de audio</div>
-              <div className="text-sm text-text-muted mb-4">Para capturar Google Meet y otros, elige BlackHole o tu dispositivo agregado (mic + sistema).</div>
+              <div className="text-sm text-text-muted mb-4">Para capturar el audio de Google Meet/Zoom, elige BlackHole (macOS) o un cable virtual de audio (Windows) + micrófono/salida del sistema.</div>
               
               <div className="space-y-1 max-h-64 overflow-auto mb-4">
                 {devices.length === 0 && <div className="text-sm text-text-muted py-3">No se detectaron dispositivos. Concede permiso de micrófono.</div>}

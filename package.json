@@ -2,7 +2,17 @@
   "name": "reunia",
   "productName": "ReunIA",
   "version": "0.1.0",
-  "description": "Grabador de reuniones con IA. Registra audio del PC y llamadas (Google Meet, etc), transcribe y genera informes inteligentes con insights, resúmenes, participantes, to-dos y recomendaciones.",
+  "description": "Grabador de reuniones con IA. Registra audio del PC y llamadas (Google Meet, Zoom, etc.), transcribe con Whisper y genera informes inteligentes con resúmenes, insights clave, asistentes, recomendaciones, consejos y to-do list. 100% local-first con opción de Ollama.",
+  "author": "Miguel Reina y equipo",
+  "license": "MIT",
+  "homepage": "https://github.com/miguelreina/reunia",
+  "repository": {
+    "type": "git",
+    "url": "https://github.com/miguelreina/reunia.git"
+  },
+  "bugs": {
+    "url": "https://github.com/miguelreina/reunia/issues"
+  },
   "private": true,
   "type": "module",
   "main": "dist-electron/main.js",

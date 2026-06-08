@@ -3,7 +3,7 @@ import { persist } from 'zustand/middleware'
 import { format } from 'date-fns'
 import type { Session, AppSettings, RecordingState, LiveQA, RecordingMode } from './types'
 import { transcribeAudioBlob, askAboutRecentTranscript } from './lib/ai'
-import { loadMemoryIndex, indexStarredFromSession, retrieveRelevantAsync, entriesToPromptSnippets, getMemoryCount, clearMemory as clearMemoryFromLib } from './lib/memory'
+import { loadMemoryIndex, indexStarredFromSession, retrieveRelevantAsync, entriesToPromptSnippets, getMemoryCount, clearMemory as clearMemoryLib } from './lib/memory'
 
 /**
  * Fast, zero-LLM heuristic to tag a live QA for filtering + self-improvement.
@@ -463,7 +463,7 @@ export const useStore = create<ReunIAStore>()(
 
       clearMemory: async () => {
         try {
-          await clearMemoryFromLib()
+          await clearMemoryLib()
           set({ memoryCount: 0 })
           console.log('[memory] cleared all local memory entries (count forced 0)')
         } catch (e) {
