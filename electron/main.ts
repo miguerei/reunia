@@ -1,4 +1,5 @@
 import { app, BrowserWindow, Tray, Menu, nativeImage, globalShortcut, ipcMain, dialog, shell, powerSaveBlocker } from 'electron'
+import { autoUpdater } from 'electron-updater'
 import { join } from 'path'
 import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, unlinkSync } from 'fs'
 import Store from 'electron-store'
@@ -729,6 +730,33 @@ function setupIpc() {
       return false
     }
   })
+
+  // === Secure Auto-Updates (electron-updater) ===
+  // All update logic stays in main process (key security: no updater code or network in renderer).
+  // Events are forwarded safely to renderer for UI only.
+  ipcMain.handle('update:check', async () => {
+    if (isDev) return { type: 'dev-mode' }
+    try {
+      const result = await autoUpdater.checkForUpdates()
+      return { type: 'checking', result: result?.updateInfo?.version || null }
+    } catch (e: any) {
+      return { type: 'error', message: e?.message || 'Error al buscar actualizaciones' }
+    }
+  })
+
+  ipcMain.handle('update:download', async () => {
+    try {
+      await autoUpdater.downloadUpdate()
+      return { type: 'downloading' }
+    } catch (e: any) {
+      return { type: 'error', message: e?.message || 'Error al descargar' }
+    }
+  })
+
+  ipcMain.handle('update:install', () => {
+    // false = no silent, true = force restart
+    autoUpdater.quitAndInstall(false, true)
+  })
 }
 
 function ensureStorage() {
@@ -738,6 +766,69 @@ function ensureStorage() {
     mkdirSync(recordingsDir, { recursive: true })
   }
   return recordingsDir
+}
+
+// Secure auto-updater setup (using electron-updater + GitHub releases)
+// Security notes as cybersecurity expert:
+// - Only updates from official GitHub repo releases (tamper-proof via GitHub + code signing verification when signed).
+// - autoDownload = false gives user control (privacy, avoid unwanted bandwidth).
+// - All events forwarded safely via IPC (no direct renderer access to updater).
+// - In production packaged app only. Dev mode disabled.
+// - For full security: app must be code-signed + notarized (mac) / signed (win). Unsigned updates can be MITM'd or flagged by AV.
+// - electron-updater verifies signatures on supported platforms when certs are configured in electron-builder.
+// - No extra data sent beyond what's needed for GitHub release check (version, platform). Respects local-first philosophy.
+function sendToRenderer(channel: string, ...args: any[]) {
+  if (mainWindow && !mainWindow.isDestroyed()) {
+    mainWindow.webContents.send(channel, ...args)
+  }
+}
+
+function setupAutoUpdater() {
+  if (isDev) {
+    console.log('[updater] Auto-updates disabled in development mode')
+    return
+  }
+
+  autoUpdater.autoDownload = false // User explicitly triggers download (better privacy & control)
+
+  autoUpdater.on('checking-for-update', () => {
+    sendToRenderer('update:status', { type: 'checking' })
+  })
+
+  autoUpdater.on('update-available', (info: any) => {
+    sendToRenderer('update:status', {
+      type: 'available',
+      version: info.version,
+      releaseDate: info.releaseDate,
+      releaseNotes: info.releaseNotes
+    })
+  })
+
+  autoUpdater.on('update-not-available', () => {
+    sendToRenderer('update:status', { type: 'not-available' })
+  })
+
+  autoUpdater.on('error', (err: any) => {
+    console.error('[updater] Error:', err)
+    sendToRenderer('update:status', { type: 'error', message: err.message || 'Error desconocido' })
+  })
+
+  autoUpdater.on('download-progress', (progressObj: any) => {
+    sendToRenderer('update:status', {
+      type: 'downloading',
+      percent: Math.round(progressObj.percent),
+      bytesPerSecond: progressObj.bytesPerSecond,
+      transferred: progressObj.transferred,
+      total: progressObj.total
+    })
+  })
+
+  autoUpdater.on('update-downloaded', (info: any) => {
+    sendToRenderer('update:status', {
+      type: 'downloaded',
+      version: info.version
+    })
+  })
 }
 
 app.whenReady().then(() => {
@@ -757,12 +848,22 @@ app.whenReady().then(() => {
 
   ensureStorage()
   setupIpc()
+  setupAutoUpdater()
   createWindow()
   createTray()
   registerGlobalShortcut()
   registerGlobalVoiceShortcut()
   registerGlobalModeCycleShortcut()
   updateTrayMenu(false) // ensure tray reflects persisted preferred mode on launch
+
+  // Silent check for updates shortly after launch (production only, respects privacy as user can ignore)
+  if (!isDev) {
+    setTimeout(() => {
+      autoUpdater.checkForUpdates().catch(() => {
+        // Silent fail - user can manually check in settings
+      })
+    }, 8000)
+  }
 
   app.on('activate', () => {
     if (BrowserWindow.getAllWindows().length === 0) createWindow()

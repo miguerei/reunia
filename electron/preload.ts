@@ -83,6 +83,14 @@ export type ElectronAPI = {
   notifyRecordingModeChanged: (mode: 'normal' | 'compact' | 'stealth') => void,
   // Listener for pushes from main (global hotkey / tray changes / background sync)
   onRecordingMode: (callback: (mode: 'normal' | 'compact' | 'stealth') => void) => () => void,
+
+  // === Secure auto-updates (implemented entirely in main process for security) ===
+  // Renderer only receives status events and can trigger check/download/install via IPC.
+  // This prevents any updater logic or network calls from the more exposed renderer.
+  checkForUpdates: () => Promise<any>,
+  downloadUpdate: () => Promise<any>,
+  quitAndInstallUpdate: () => void,
+  onUpdateStatus: (callback: (status: any) => void) => () => void,
 }
 
 const electronAPI: ElectronAPI = {
@@ -172,6 +180,16 @@ const electronAPI: ElectronAPI = {
     const handler = (_: any, mode: 'normal' | 'compact' | 'stealth') => callback(mode)
     ipcRenderer.on('recording:mode', handler)
     return () => ipcRenderer.removeListener('recording:mode', handler)
+  },
+
+  // Secure update controls (calls are forwarded; status comes from main only)
+  checkForUpdates: () => ipcRenderer.invoke('update:check'),
+  downloadUpdate: () => ipcRenderer.invoke('update:download'),
+  quitAndInstallUpdate: () => ipcRenderer.invoke('update:install'),
+  onUpdateStatus: (callback) => {
+    const handler = (_: any, status: any) => callback(status)
+    ipcRenderer.on('update:status', handler)
+    return () => ipcRenderer.removeListener('update:status', handler)
   },
 }
 

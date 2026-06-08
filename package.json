@@ -64,11 +64,18 @@
         }
       ]
     },
-    "publish": null
+    "publish": {
+      "provider": "github",
+      "owner": "miguelreina",
+      "repo": "reunia",
+      "private": false,
+      "releaseType": "release"
+    }
   },
   "dependencies": {
     "date-fns": "^3.6.0",
     "electron-store": "^8.2.0",
+    "electron-updater": "^6.3.9",
     "file-saver": "^2.0.5",
     "framer-motion": "^11.18.2",
     "jszip": "^3.10.1",

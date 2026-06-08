@@ -755,6 +755,9 @@ export default function ReunIA() {
   // for new team members so they can paste their OpenAI key or switch to Ollama immediately.
   const [didFirstRunCheck, setDidFirstRunCheck] = useState(false)
 
+  // Secure update status (events come only from main process via IPC)
+  const [updateStatus, setUpdateStatus] = useState<any>(null)
+
   // Proper ref + effect for auto-scrolling live Q&A history (replaces previous render-mutation hack)
   const liveHistoryRef = useRef<HTMLDivElement>(null)
 
@@ -991,6 +994,16 @@ export default function ReunIA() {
       setOllamaTestStatus({ loading: false, message: '' })
     }
   }, [isSettingsOpen, settings.aiProvider])
+
+  // Listen for secure update status events (pushed from main process only)
+  useEffect(() => {
+    const api = (window as any).electron
+    if (!api?.onUpdateStatus) return
+    const unsub = api.onUpdateStatus((status: any) => {
+      setUpdateStatus(status)
+    })
+    return unsub
+  }, [])
 
   // First-run / team onboarding UX:
   // When a new person installs and launches ReunIA for the first time on their PC,
@@ -1625,6 +1638,33 @@ export default function ReunIA() {
       }
     } catch {
       toast.info('No se pudo verificar el endpoint automáticamente. Úsalo al procesar.')
+    }
+  }
+
+  // Secure update handlers (all logic and verification happens in main process via electron-updater)
+  // This is important for security: renderer cannot directly download or install unsigned/unverified updates.
+  async function handleCheckForUpdates() {
+    const api = (window as any).electron
+    if (!api?.checkForUpdates) return
+    setUpdateStatus({ type: 'checking' })
+    try {
+      await api.checkForUpdates()
+    } catch (e: any) {
+      setUpdateStatus({ type: 'error', message: e?.message || 'Error' })
+    }
+  }
+
+  async function handleDownloadUpdate() {
+    const api = (window as any).electron
+    if (api?.downloadUpdate) {
+      await api.downloadUpdate()
+    }
+  }
+
+  function handleInstallUpdate() {
+    const api = (window as any).electron
+    if (api?.quitAndInstallUpdate) {
+      api.quitAndInstallUpdate()
     }
   }
 
@@ -3277,6 +3317,39 @@ export default function ReunIA() {
                 <div className="flex items-center gap-2 pt-2">
                   <input type="checkbox" checked={settings.autoProcess} onChange={e => saveSettings({ autoProcess: e.target.checked })} id="auto" />
                   <label htmlFor="auto" className="text-sm">Procesar automáticamente al terminar (próximamente)</label>
+                </div>
+
+                {/* Secure auto-updates section (powered by electron-updater from main process) */}
+                <div className="pt-2 border-t border-white/10">
+                  <label className="text-xs uppercase tracking-widest text-text-muted block mb-1.5">Actualizaciones seguras</label>
+                  <div className="flex gap-2 flex-wrap">
+                    <button onClick={handleCheckForUpdates} className="btn btn-secondary text-sm" disabled={updateStatus?.type === 'checking'}>
+                      {updateStatus?.type === 'checking' ? 'Buscando...' : 'Buscar actualizaciones'}
+                    </button>
+                    {updateStatus?.type === 'available' && (
+                      <button onClick={handleDownloadUpdate} className="btn btn-primary text-sm">
+                        Descargar v{updateStatus.version}
+                      </button>
+                    )}
+                    {updateStatus?.type === 'downloaded' && (
+                      <button onClick={handleInstallUpdate} className="btn btn-primary text-sm">
+                        Instalar v{updateStatus.version} y reiniciar
+                      </button>
+                    )}
+                  </div>
+                  {updateStatus && (
+                    <div className="text-[10px] text-text-muted mt-1">
+                      {updateStatus.type === 'available' && 'Actualización disponible. Descarga para instalar.'}
+                      {updateStatus.type === 'downloading' && `Descargando: ${updateStatus.percent || 0}%`}
+                      {updateStatus.type === 'downloaded' && 'Lista para instalar. La app se reiniciará.'}
+                      {updateStatus.type === 'not-available' && 'Estás en la versión más reciente.'}
+                      {updateStatus.type === 'error' && `Error: ${updateStatus.message}`}
+                      {updateStatus.type === 'checking' && 'Verificando releases oficiales en GitHub...'}
+                    </div>
+                  )}
+                  <div className="text-[10px] text-text-muted mt-1">
+                    Las actualizaciones se verifican y descargan solo desde los releases oficiales de GitHub. Requiere que la app esté firmada para máxima seguridad y compatibilidad con antivirus.
+                  </div>
                 </div>
 
                 {/* Deep memory / self-improvement management (profundizar la memoria) */}
