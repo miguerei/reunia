@@ -2,7 +2,7 @@ import { create } from 'zustand'
 import { persist } from 'zustand/middleware'
 import { format } from 'date-fns'
 import type { Session, AppSettings, RecordingState, LiveQA, RecordingMode } from './types'
-import { transcribeAudioBlob, askAboutRecentTranscript } from './lib/ai'
+import { transcribeAudioBlob, askAboutRecentTranscript, liveCoachAnalysis } from './lib/ai'
 import { loadMemoryIndex, indexStarredFromSession, retrieveRelevantAsync, entriesToPromptSnippets, getMemoryCount, clearMemory as clearMemoryLib } from './lib/memory'
 
 /**
@@ -57,12 +57,15 @@ interface ReunIAStore {
 
   // Recording
   setRecordingState: (partial: Partial<RecordingState>) => void
-  startRecording: (deviceId: string | null) => Promise<boolean>
+  startRecording: (deviceId: string | null, systemDeviceId?: string | null) => Promise<boolean>
   stopRecording: () => Promise<Session | null>
   updateElapsed: () => void
 
   // Live assistant during recording (what was said in the last minutes)
   askLiveQuestion: (question: string) => Promise<void>
+
+  // Live Coach: resumen/tono/sugerencias/perfil/nombres de los últimos minutos
+  runLiveCoach: () => Promise<void>
 
   // Settings
   setSettings: (s: Partial<AppSettings>) => void
@@ -120,6 +123,8 @@ const defaultRecording: RecordingState = {
   isThinkingLLM: false,
   lastTranscribedChunkCount: 0,
   contextFocus: null,
+  liveCoach: null,
+  isCoachRunning: false,
 }
 
 export const useStore = create<ReunIAStore>()(
@@ -257,15 +262,47 @@ export const useStore = create<ReunIAStore>()(
       setRecordingState: (partial) =>
         set((state) => ({ recording: { ...state.recording, ...partial } })),
 
-      startRecording: async (deviceId) => {
+      startRecording: async (deviceId, systemDeviceId) => {
         try {
-          const stream = await navigator.mediaDevices.getUserMedia({
+          const micStream = await navigator.mediaDevices.getUserMedia({
             audio: deviceId ? { deviceId: { exact: deviceId } } : true,
           })
+
+          // Dual capture for video calls: mix mic + system-audio device (BlackHole / VB-Cable)
+          // into a single stream with WebAudio so the other participants are recorded too.
+          let stream = micStream
+          const sourceStreams: MediaStream[] = [micStream]
+          let mixContext: AudioContext | null = null
+
+          if (systemDeviceId && systemDeviceId !== deviceId) {
+            try {
+              const systemStream = await navigator.mediaDevices.getUserMedia({
+                audio: {
+                  deviceId: { exact: systemDeviceId },
+                  // System audio must come through untouched: processing is tuned for voice mics
+                  echoCancellation: false,
+                  noiseSuppression: false,
+                  autoGainControl: false,
+                },
+              })
+              mixContext = new AudioContext()
+              const destination = mixContext.createMediaStreamDestination()
+              mixContext.createMediaStreamSource(micStream).connect(destination)
+              mixContext.createMediaStreamSource(systemStream).connect(destination)
+              stream = destination.stream
+              sourceStreams.push(systemStream)
+            } catch (sysErr) {
+              console.warn('No se pudo capturar el audio del sistema; grabando solo micrófono', sysErr)
+            }
+          }
 
           const mediaRecorder = new MediaRecorder(stream, {
             mimeType: 'audio/webm;codecs=opus',
           })
+
+          // Keep references for full cleanup on stop (same pattern as _elapsedInterval)
+          ;(mediaRecorder as any)._sourceStreams = sourceStreams
+          ;(mediaRecorder as any)._mixContext = mixContext
 
           const fullChunks: Blob[] = []
           const recentChunks: Blob[] = []
@@ -354,8 +391,12 @@ export const useStore = create<ReunIAStore>()(
           const chunks = rec.audioChunks
 
           mr.onstop = async () => {
-            // Stop tracks
+            // Stop tracks (recorded stream + original mic/system source streams when mixing)
             mr.stream.getTracks().forEach((t) => t.stop())
+            const sources: MediaStream[] = (mr as any)._sourceStreams || []
+            sources.forEach((s) => s.getTracks().forEach((t) => t.stop()))
+            const mixCtx: AudioContext | null = (mr as any)._mixContext || null
+            if (mixCtx && mixCtx.state !== 'closed') mixCtx.close().catch(() => {})
 
             // Clear timer
             if ((mr as any)._elapsedInterval) clearInterval((mr as any)._elapsedInterval)
@@ -596,6 +637,73 @@ export const useStore = create<ReunIAStore>()(
               },
             }
           })
+        }
+      },
+      // ===================== LIVE COACH (resumen/tono/sugerencias/perfil/nombres) =====================
+      runLiveCoach: async () => {
+        const rec = get().recording
+        if (!rec.isRecording || rec.isCoachRunning) return
+
+        const settings = get().settings
+        const recentChunks = rec.recentAudioChunks || []
+        let recentTranscript = rec.liveTranscript || ''
+        const previousChunkCount = rec.lastTranscribedChunkCount || 0
+
+        set((state) => ({
+          recording: { ...state.recording, isCoachRunning: true, isTranscribingRecent: true },
+        }))
+
+        try {
+          // Incremental transcription, same approach as askLiveQuestion
+          const newChunks = recentChunks.slice(previousChunkCount)
+          if (newChunks.length > 0) {
+            const newAudioBlob = new Blob(newChunks, { type: 'audio/webm' })
+            const newlyTranscribed = await transcribeAudioBlob(settings, newAudioBlob)
+            if (newlyTranscribed && newlyTranscribed.length > 2) {
+              const combined = (recentTranscript + ' ' + newlyTranscribed).trim()
+              recentTranscript = combined.length > 22000 ? combined.slice(-19000) : combined
+            }
+          }
+          const newChunkCount = recentChunks.length
+
+          set((state) => ({
+            recording: {
+              ...state.recording,
+              isTranscribingRecent: false,
+              isThinkingLLM: true,
+              liveTranscript: recentTranscript,
+              lastTranscribedChunkCount: newChunkCount,
+            },
+          }))
+
+          const coach = await liveCoachAnalysis(settings, recentTranscript)
+
+          set((state) => ({
+            recording: {
+              ...state.recording,
+              liveCoach: coach,
+              isCoachRunning: false,
+              isThinkingLLM: false,
+            },
+          }))
+        } catch (err: any) {
+          console.error('Live coach error', err)
+          set((state) => ({
+            recording: {
+              ...state.recording,
+              liveCoach: {
+                summary: 'Error analizando los últimos minutos: ' + (err?.message || 'intenta de nuevo'),
+                tone: '',
+                suggestions: [],
+                psychProfile: '',
+                detectedNames: [],
+                timestamp: new Date().toISOString(),
+              },
+              isCoachRunning: false,
+              isTranscribingRecent: false,
+              isThinkingLLM: false,
+            },
+          }))
         }
       },
     }),

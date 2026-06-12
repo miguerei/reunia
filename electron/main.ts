@@ -1,4 +1,4 @@
-import { app, BrowserWindow, Tray, Menu, nativeImage, globalShortcut, ipcMain, dialog, shell, powerSaveBlocker } from 'electron'
+import { app, BrowserWindow, Tray, Menu, nativeImage, globalShortcut, ipcMain, dialog, shell, powerSaveBlocker, session, screen } from 'electron'
 import { autoUpdater } from 'electron-updater'
 import path from 'path'
 import { existsSync, mkdirSync, readFileSync, writeFileSync, readdirSync, unlinkSync, statSync } from 'fs'
@@ -44,11 +44,54 @@ let preferredRecordingMode: 'normal' | 'compact' | 'stealth' = 'normal'
 
 const isDev = !app.isPackaged
 
+/**
+ * Base storage directory where all session files live. Single source of truth
+ * for path-containment checks so a compromised renderer can't read/write/reveal
+ * files outside the app's own data folder via IPC.
+ */
+function getStorageBase(): string {
+  const settings = (store?.get('settings') || {}) as AppSettings
+  return settings.storagePath || path.join(app.getPath('documents'), 'ReunIA')
+}
+
+/** True only if `candidate` resolves to something inside `base` (defends against ../ and absolute paths). */
+function isInsideStorage(candidate: string, base = getStorageBase()): boolean {
+  if (!candidate) return false
+  const resolvedBase = path.resolve(base)
+  const resolved = path.resolve(candidate)
+  return resolved === resolvedBase || resolved.startsWith(resolvedBase + path.sep)
+}
+
+/** Strip any path separators / traversal from a folder name so it can only be a single child dir. */
+function sanitizeFolderName(name: string): string {
+  return path.basename(String(name || '')).replace(/[^a-zA-Z0-9_.\- ]/g, '').slice(0, 120) || 'sesion'
+}
+
 function getResourcePath(...paths: string[]) {
   if (isDev) {
     return path.join(process.cwd(), ...paths)
   }
   return path.join(process.resourcesPath, ...paths)
+}
+
+/**
+ * Electron hardening (security checklist): the renderer only ever runs our own
+ * local app. Block navigation away from it and deny window.open / new windows;
+ * external links are sent to the OS browser instead of loading in-app (which
+ * would inherit our preload + IPC bridge).
+ */
+function hardenWindow(win: BrowserWindow) {
+  const allowedPrefixes = ['http://localhost:5173', 'file://']
+  win.webContents.on('will-navigate', (event, url) => {
+    if (!allowedPrefixes.some((p) => url.startsWith(p))) {
+      event.preventDefault()
+      if (/^https?:\/\//.test(url)) shell.openExternal(url).catch(() => {})
+    }
+  })
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    if (/^https?:\/\//.test(url)) shell.openExternal(url).catch(() => {})
+    return { action: 'deny' }
+  })
 }
 
 function createWindow() {
@@ -68,6 +111,8 @@ function createWindow() {
       sandbox: false,
     },
   })
+
+  hardenWindow(mainWindow)
 
   if (isDev) {
     mainWindow.loadURL('http://localhost:5173')
@@ -102,7 +147,6 @@ function createCompanionWindow() {
   // Resizable so user can tune; position prefers top-right (non-intrusive).
   // Autonomous enhancement: persist last user-chosen position/size across sessions (critical for PiP muscle-memory
   // during recurring meetings on multi-monitor or specific screen-share setups). Falls back to sensible default.
-  const { screen } = require('electron')
   const primary = screen.getPrimaryDisplay()
   const { width: workW, height: workH } = primary.workAreaSize
   const cW = 340
@@ -143,6 +187,8 @@ function createCompanionWindow() {
       sandbox: false,
     },
   })
+
+  hardenWindow(companionWindow)
 
   const url = isDev
     ? 'http://localhost:5173?companion=1'
@@ -362,7 +408,9 @@ function updateTrayMenu(recording: boolean, elapsed?: string) {
     },
     { type: 'separator' },
     { label: 'Salir', click: () => { app.isQuitting = true; app.quit() } },
-  ] as any)
+    // .filter(Boolean): the PiP entry above is null when not recording, and
+    // Menu.buildFromTemplate rejects null items ("Invalid template for MenuItem").
+  ].filter(Boolean) as any)
   tray.setContextMenu(menu)
   tray.setToolTip(recording ? `ReunIA • Grabando ${elapsed || ''} • ${currentMode}` : `ReunIA • Listo • modo ${currentMode}`)
 }
@@ -478,11 +526,20 @@ function setupIpc() {
     return result.canceled ? null : result.filePaths[0]
   })
 
-  // Shell
+  // Shell — only ever open/reveal paths inside the app's own storage folder.
+  // A compromised renderer must not be able to open or reveal arbitrary system paths.
   ipcMain.handle('shell:open-path', async (_e, p: string) => {
+    if (!isInsideStorage(p)) {
+      console.warn('[security] shell:open-path rejected path outside storage', p)
+      return 'rejected'
+    }
     return shell.openPath(p)
   })
   ipcMain.on('shell:show-item-in-folder', (_e, fullPath: string) => {
+    if (!isInsideStorage(fullPath)) {
+      console.warn('[security] shell:show-item-in-folder rejected path outside storage', fullPath)
+      return
+    }
     shell.showItemInFolder(fullPath)
   })
 
@@ -506,9 +563,13 @@ function setupIpc() {
   // Save complete session (audio + json + md) to the storage folder
   ipcMain.handle('session:save-full', async (_event, payload: { folderName: string; session: any; transcript?: string; report?: any; audioBuffer: ArrayBuffer }) => {
     try {
-      const settings = (store.get('settings') || {}) as any
-      const base = settings.storagePath || path.join(app.getPath('documents'), 'ReunIA')
-      const folderPath = path.join(base, payload.folderName)
+      const base = getStorageBase()
+      // Sanitize: folderName can only ever be a single child directory, never a traversal/absolute path.
+      const folderPath = path.join(base, sanitizeFolderName(payload.folderName))
+      if (!isInsideStorage(folderPath, base)) {
+        console.warn('[security] session:save-full rejected folder outside storage', payload.folderName)
+        return { success: false, error: 'ruta no permitida' }
+      }
 
       if (!existsSync(folderPath)) mkdirSync(folderPath, { recursive: true })
 
@@ -585,6 +646,11 @@ function setupIpc() {
   ipcMain.handle('audio:load', async (_e, folderPath: string, audioFileName: string) => {
     try {
       if (!folderPath || !audioFileName) return null
+      // Containment: folderPath must be inside the app's storage base (not any system dir).
+      if (!isInsideStorage(folderPath)) {
+        console.warn('[security] audio:load rejected folder outside storage', folderPath)
+        return null
+      }
       // Extra sanitization: only allow safe audio filenames (webm/wav etc.)
       const safeName = audioFileName.replace(/[^a-zA-Z0-9_.-]/g, '')
       if (!safeName.endsWith('.webm') && !safeName.endsWith('.wav') && !safeName.endsWith('.mp3')) {
@@ -617,7 +683,7 @@ function setupIpc() {
   // Returns the parsed Report so the rich visual report (insights, to-dos, etc.) works for past meetings.
   ipcMain.handle('report:load', async (_e, folderPath: string) => {
     try {
-      if (!folderPath) return null
+      if (!folderPath || !isInsideStorage(folderPath)) return null
       const reportPath = path.join(folderPath, 'report.json')
       const resolved = path.resolve(reportPath)
       const resolvedFolder = path.resolve(folderPath)
@@ -635,7 +701,7 @@ function setupIpc() {
   // Secure loader for transcript text of a saved session.
   ipcMain.handle('transcript:load', async (_e, folderPath: string) => {
     try {
-      if (!folderPath) return null
+      if (!folderPath || !isInsideStorage(folderPath)) return null
       const transcriptPath = path.join(folderPath, 'transcript.txt')
       const resolved = path.resolve(transcriptPath)
       const resolvedFolder = path.resolve(folderPath)
@@ -914,6 +980,30 @@ app.whenReady().then(() => {
   const storedMode = store.get('preferredRecordingMode') as any
   if (storedMode === 'compact' || storedMode === 'stealth' || storedMode === 'normal') {
     preferredRecordingMode = storedMode
+  }
+
+  // Content-Security-Policy: in the packaged app the renderer only loads our own
+  // bundle, so we lock down where it may connect. This contains exfiltration of the
+  // API key / transcripts to api.openai.com and a local Ollama/Whisper endpoint only.
+  // Skipped in dev because Vite's HMR needs inline scripts + a websocket.
+  if (!isDev) {
+    session.defaultSession.webRequest.onHeadersReceived((details, callback) => {
+      callback({
+        responseHeaders: {
+          ...details.responseHeaders,
+          'Content-Security-Policy': [
+            "default-src 'self'; " +
+            "script-src 'self'; " +
+            "style-src 'self' 'unsafe-inline'; " +
+            "img-src 'self' data: blob:; " +
+            "font-src 'self' data:; " +
+            "media-src 'self' blob:; " +
+            "connect-src 'self' https://api.openai.com http://localhost:* http://127.0.0.1:*; " +
+            "object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
+          ],
+        },
+      })
+    })
   }
 
   ensureStorage()

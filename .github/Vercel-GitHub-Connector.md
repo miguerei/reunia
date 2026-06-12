@@ -3,9 +3,9 @@
 ## For the Landing Page (preview.html)
 1. Push this repo to GitHub (see main README).
 2. In Vercel Dashboard:
-   - Go to your project (reunia or miguelr-projects/reunia)
+   - Go to your project (reunia)
    - Settings > Git
-   - Connect GitHub repository: select `miguerei/reunia` or your username/reunia
+   - Connect GitHub repository: select `miguerei/reunia`
    - This will auto-deploy the landing page on every push to main (using vercel.json which serves preview.html).
 
 ## For the App (Electron binaries)

@@ -727,6 +727,7 @@ export default function ReunIA() {
     saveSettings,
     setProcessing,
     askLiveQuestion,
+    runLiveCoach,
     memoryCount,
     loadMemory,
     clearMemory,
@@ -741,6 +742,8 @@ export default function ReunIA() {
 
   const { devices, refresh: refreshDevices } = useAudioDevices()
   const [selectedDeviceId, setSelectedDeviceId] = useState<string>('')
+  const [selectedSystemDeviceId, setSelectedSystemDeviceId] = useState<string>('')
+  const [appVersion, setAppVersion] = useState<string>('')
   const [showDevicePicker, setShowDevicePicker] = useState(false)
   const [searchTerm, setSearchTerm] = useState('')
   const [currentAudioUrl, _setCurrentAudioUrl] = useState<string | null>(null)
@@ -981,6 +984,7 @@ export default function ReunIA() {
     loadSessions()
     loadSettings()
     loadMemory()
+    ;(window as any).electron?.getAppVersion?.().then((v: string) => v && setAppVersion(v)).catch(() => {})
     // Sync preferred recordingMode (compact/stealth) from main process (may have been changed via tray or global Cmd+Shift+M while app was closed/hidden).
     // Ensures the pre-record indicator + auto-start on record always reflect the system-wide pref.
     const api = (window as any).electron
@@ -1459,16 +1463,18 @@ export default function ReunIA() {
     .sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
 
   // ===================== RECORDING =====================
-  async function handleStartRecording() {
+  // fromPicker === true only when invoked from the device-picker confirm button
+  // (onClick={handleStartRecording} passes the click event, hence the strict check)
+  async function handleStartRecording(fromPicker?: unknown) {
     if (recording.isRecording) return
 
     // Show device picker the first time or if user wants
-    if (!selectedDeviceId && devices.length > 1) {
+    if (fromPicker !== true && !selectedDeviceId && devices.length > 1) {
       setShowDevicePicker(true)
       return
     }
 
-    const ok = await startRecording(selectedDeviceId || null)
+    const ok = await startRecording(selectedDeviceId || null, selectedSystemDeviceId || null)
     if (ok) {
       toast.success('Grabación iniciada', { description: 'Habla normalmente. Pulsa detener cuando termines.' })
       setShowDevicePicker(false)
@@ -2322,6 +2328,67 @@ export default function ReunIA() {
                       )}
                     </div>
                   )}
+
+                  {/* ========== LIVE COACH: resumen de los últimos minutos + tono + sugerencias + perfil + nombres ========== */}
+                  <div className="mb-3">
+                    <div className="flex items-center justify-between mb-1.5 px-0.5">
+                      <div className="flex items-center gap-1.5 text-[10px] text-text-muted">
+                        <Lightbulb className="w-3 h-3" />
+                        <span className="font-medium tracking-wide">COACH IA</span>
+                        <span className="text-[9px] opacity-60">(análisis de los últimos minutos)</span>
+                      </div>
+                      <button
+                        onClick={() => runLiveCoach()}
+                        disabled={recording.isCoachRunning || recording.isTranscribingRecent || recording.isThinkingLLM}
+                        className="text-[11px] px-2.5 py-1 rounded-full flex items-center gap-1 border transition-all active:scale-[0.985] bg-accent/15 border-accent text-accent hover:bg-accent/25 disabled:opacity-50 disabled:cursor-not-allowed"
+                        title="Analiza los últimos minutos: resumen, tono, sugerencias de mejora, perfil del interlocutor y nombres detectados"
+                      >
+                        {recording.isCoachRunning ? (
+                          <><RefreshCw className="w-3 h-3 animate-spin" /> Analizando…</>
+                        ) : (
+                          <><Lightbulb className="w-3 h-3" /> Resumen últimos minutos</>
+                        )}
+                      </button>
+                    </div>
+                    {recording.liveCoach && !recording.isCoachRunning && (
+                      <div className="px-3 py-2.5 bg-bg/60 rounded-xl border border-accent/20 text-xs space-y-2">
+                        <div className="text-text-secondary leading-snug">
+                          <span className="font-medium text-accent-light">Resumen: </span>
+                          {recording.liveCoach.summary}
+                        </div>
+                        {recording.liveCoach.tone && (
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <span className="text-[10px] px-1.5 py-px rounded bg-white/5 border border-white/10 text-text-muted">tono</span>
+                            <span className="text-text-secondary">{recording.liveCoach.tone}</span>
+                          </div>
+                        )}
+                        {recording.liveCoach.suggestions.length > 0 && (
+                          <div>
+                            <span className="text-[10px] px-1.5 py-px rounded bg-white/5 border border-white/10 text-text-muted">cómo mejorar ahora</span>
+                            <ul className="mt-1 space-y-0.5 list-disc list-inside text-text-secondary">
+                              {recording.liveCoach.suggestions.slice(0, 4).map((s, i) => (
+                                <li key={i} className="leading-snug">{s}</li>
+                              ))}
+                            </ul>
+                          </div>
+                        )}
+                        {recording.liveCoach.psychProfile && (
+                          <div className="leading-snug text-text-secondary">
+                            <span className="text-[10px] px-1.5 py-px rounded bg-white/5 border border-white/10 text-text-muted mr-1.5">perfil del interlocutor</span>
+                            {recording.liveCoach.psychProfile}
+                          </div>
+                        )}
+                        {recording.liveCoach.detectedNames.length > 0 && (
+                          <div className="flex items-center gap-1.5 flex-wrap">
+                            <Users className="w-3 h-3 text-text-muted" />
+                            {recording.liveCoach.detectedNames.slice(0, 8).map((n, i) => (
+                              <span key={i} className="text-[10px] px-1.5 py-px rounded-full bg-accent/10 border border-accent/25 text-accent-light">{n}</span>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+                    )}
+                  </div>
 
                   {/* ========== SMART CONTEXT FOCUS FILTER (the core high-value feature) ========== */}
                   {/* Instant-apply premium chips. Sets contextFocus → influences prompt sent to LLM for live Qs */}
@@ -3608,7 +3675,7 @@ export default function ReunIA() {
                     }
                   }} className="btn btn-secondary text-xs">Buscar actualizaciones</button>
                   <button onClick={() => { refreshDevices(); toast('Dispositivos actualizados') }} className="btn btn-secondary text-xs">Actualizar micrófonos</button>
-                  <span className="text-[10px] text-text-muted ml-2">v{ (window as any).electron?.getAppVersion ? 'cargando...' : '0.1.0' }</span>
+                  <span className="text-[10px] text-text-muted ml-2">{appVersion ? `v${appVersion}` : ''}</span>
                 </div>
               </div>
 
@@ -3625,25 +3692,44 @@ export default function ReunIA() {
         {showDevicePicker && (
           <div className="fixed inset-0 bg-black/70 z-[60] flex items-center justify-center p-6" onClick={() => setShowDevicePicker(false)}>
             <div className="card w-full max-w-md p-5" onClick={e => e.stopPropagation()}>
-              <div className="font-semibold mb-3">Elige dispositivo de entrada de audio</div>
-              <div className="text-sm text-text-muted mb-4">Para capturar el audio de Google Meet/Zoom, elige BlackHole (macOS) o un cable virtual de audio (Windows) + micrófono/salida del sistema.</div>
-              
-              <div className="space-y-1 max-h-64 overflow-auto mb-4">
+              <div className="font-semibold mb-3">Elige tus dispositivos de audio</div>
+              <div className="text-sm text-text-muted mb-4">
+                <strong>1. Micrófono</strong> = tu voz. <strong>2. Audio del sistema</strong> (opcional) = la voz de los demás en Meet/Zoom, vía BlackHole (macOS) o VB-Cable (Windows). Si eliges los dos, se mezclan en una sola grabación.
+              </div>
+
+              <div className="text-[11px] font-medium text-text-muted mb-1 tracking-wide">1 · MICRÓFONO (tu voz)</div>
+              <div className="space-y-1 max-h-40 overflow-auto mb-3">
                 {devices.length === 0 && <div className="text-sm text-text-muted py-3">No se detectaron dispositivos. Concede permiso de micrófono.</div>}
                 {devices.map((d) => (
-                  <button 
-                    key={d.deviceId} 
-                    onClick={() => { setSelectedDeviceId(d.deviceId); setShowDevicePicker(false); handleStartRecording() }}
-                    className="w-full text-left px-4 py-3 rounded-xl hover:bg-white/5 flex justify-between items-center text-sm border border-white/5"
+                  <button
+                    key={d.deviceId}
+                    onClick={() => setSelectedDeviceId(d.deviceId === selectedDeviceId ? '' : d.deviceId)}
+                    className={`w-full text-left px-4 py-2.5 rounded-xl hover:bg-white/5 flex justify-between items-center text-sm border ${d.deviceId === selectedDeviceId ? 'border-accent/50 bg-accent/10' : 'border-white/5'}`}
                   >
                     {d.label || 'Dispositivo sin nombre'}
-                    {d.deviceId === selectedDeviceId && <span className="text-accent text-xs">Seleccionado</span>}
+                    {d.deviceId === selectedDeviceId && <span className="text-accent text-xs">Micrófono</span>}
+                  </button>
+                ))}
+              </div>
+
+              <div className="text-[11px] font-medium text-text-muted mb-1 tracking-wide">2 · AUDIO DEL SISTEMA (la voz de los demás — opcional)</div>
+              <div className="space-y-1 max-h-40 overflow-auto mb-4">
+                {devices.filter((d) => d.deviceId !== selectedDeviceId).map((d) => (
+                  <button
+                    key={d.deviceId}
+                    onClick={() => setSelectedSystemDeviceId(d.deviceId === selectedSystemDeviceId ? '' : d.deviceId)}
+                    className={`w-full text-left px-4 py-2.5 rounded-xl hover:bg-white/5 flex justify-between items-center text-sm border ${d.deviceId === selectedSystemDeviceId ? 'border-accent/50 bg-accent/10' : 'border-white/5'}`}
+                  >
+                    {d.label || 'Dispositivo sin nombre'}
+                    {d.deviceId === selectedSystemDeviceId && <span className="text-accent text-xs">Sistema</span>}
                   </button>
                 ))}
               </div>
 
               <div className="flex gap-2">
-                <button className="btn btn-secondary flex-1" onClick={() => { setShowDevicePicker(false); handleStartRecording() }}>Usar dispositivo por defecto</button>
+                <button className="btn btn-primary flex-1" onClick={() => { setShowDevicePicker(false); handleStartRecording(true) }}>
+                  {selectedSystemDeviceId ? 'Grabar mic + sistema' : 'Empezar a grabar'}
+                </button>
                 <button className="btn btn-ghost" onClick={() => setShowDevicePicker(false)}>Cancelar</button>
               </div>
             </div>

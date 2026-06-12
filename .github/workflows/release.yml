@@ -6,11 +6,15 @@ on:
       - 'v*.*.*'
   workflow_dispatch:
 
+# Least privilege at the workflow level; the build job needs no write scope and
+# the GITHUB_TOKEN is only granted write in the dedicated release job below.
 permissions:
-  contents: write   # Only for creating/updating releases (least privilege possible for this job)
+  contents: read
 
 jobs:
   build:
+    permissions:
+      contents: read   # build publishes nothing (--publish never); no repo write needed
     strategy:
       fail-fast: false
       matrix:
@@ -27,6 +31,9 @@ jobs:
     steps:
       - name: Checkout (pinned SHA for supply-chain security)
         uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6.0.3
+        with:
+          # Don't leave the GITHUB_TOKEN in .git/config while npm postinstall scripts run.
+          persist-credentials: false
 
       - name: Setup Node.js
         uses: actions/setup-node@48b55a011bda9f5d6aeb4c2d9c7362e8dae4041e # v6.4.0
@@ -93,6 +100,8 @@ jobs:
     needs: build
     runs-on: ubuntu-latest
     if: startsWith(github.ref, 'refs/tags/')
+    permissions:
+      contents: write   # only this job creates the GitHub Release
     steps:
       - name: Download all build artifacts
         uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c # v8.0.1
