@@ -1,0 +1,9 @@
+release/
+dist/
+dist-electron/
+node_modules/
+build/
+*.dmg
+*.blockmap
+*.zip
+.DS_Store
