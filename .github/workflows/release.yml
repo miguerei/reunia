@@ -39,9 +39,17 @@ jobs:
 
       # Without Apple Developer secrets the build must stay unsigned (notarize:true
       # would make electron-builder fail). This flips it off automatically.
+      # (secrets context is not allowed in step `if`, so the check happens in bash)
       - name: Disable macOS notarization when Apple secrets are missing
-        if: ${{ matrix.artifact_name == 'mac' && secrets.APPLE_ID == '' }}
-        run: node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.build.mac.notarize=false;fs.writeFileSync('package.json',JSON.stringify(p,null,2));console.log('macOS notarization disabled (no APPLE_ID secret)')"
+        if: matrix.artifact_name == 'mac'
+        env:
+          APPLE_ID: ${{ secrets.APPLE_ID }}
+        run: |
+          if [ -z "$APPLE_ID" ]; then
+            node -e "const fs=require('fs');const p=JSON.parse(fs.readFileSync('package.json','utf8'));p.build.mac.notarize=false;fs.writeFileSync('package.json',JSON.stringify(p,null,2));console.log('macOS notarization disabled (no APPLE_ID secret)')"
+          else
+            echo "Apple secrets present - keeping notarization enabled"
+          fi
 
       - name: Build renderer + compile Electron + create installer
         run: ${{ matrix.script }}
