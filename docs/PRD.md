@@ -1,9 +1,9 @@
 # PRD — ReunIA
 
 **Producto:** ReunIA — Grabador de reuniones con informes de IA, 100% local-first
-**Owner:** Miguel Reina (Learning Heroes)
-**Estado:** v0.2.0 — MVP funcional distribuido vía GitHub Releases
-**Última actualización:** 2026-06-12
+**Owner:** Miguel Reina
+**Estado:** v0.3.0 — Live Coach + captura dual de audio + instalación de un comando + hardening de seguridad
+**Última actualización:** 2026-06-13
 
 ---
 
@@ -65,7 +65,18 @@ Que cualquier persona del equipo pueda **grabar cualquier llamada o reunión con
 | 3 | Firma + notarización macOS (elimina el "app dañada" de Gatekeeper) | ⏳ requiere cuenta Apple Developer (99 USD/año) — secrets documentados en `release.yml` |
 | 4 | Landing/demo (`preview.html`) desplegada con CTAs de descarga | ⏳ opcional |
 
-### v0.3 — Calidad del informe
+### v0.3 — Live Coach + captura total + instalación fácil + seguridad ✅ (esta versión)
+
+*Objetivo: experiencia tipo Read AI, gratis y local, sin fricción de instalación.*
+
+- ✅ **Live Coach**: botón "resumen de los últimos minutos" durante la grabación → resumen, tono de la conversación, sugerencias de mejora en tiempo real, perfil psicológico/comunicativo estimado del interlocutor y nombres detectados.
+- ✅ **Captura dual de audio**: micrófono + audio del sistema (BlackHole/VB-Cable) mezclados en una sola grabación con WebAudio, para videollamadas con varias personas.
+- ✅ **Detección de nombres** del interlocutor en el informe final y en el Live Coach.
+- ✅ **Instalación de un comando** (mismo concepto en Mac y Windows): `install.sh` (curl … | bash) e `install.ps1` (irm … | iex) que descargan el último release, instalan y abren la app.
+- ✅ **Hardening de seguridad** (ver §10): contención de rutas en IPC, bloqueo de navegación, CSP, permisos de CI por job, dependencias sin CVEs.
+- ✅ **Bug crítico de arranque corregido**: el proceso Electron se compilaba como ESM bajo `"type":"module"`, lo que rompía la app al abrir (`__dirname`/import de electron-updater). Ahora se compila a CommonJS.
+
+### v0.4 — Calidad del informe
 
 *Objetivo: que el informe sea tan bueno que nadie quiera tomar notas a mano.*
 
@@ -73,6 +84,8 @@ Que cualquier persona del equipo pueda **grabar cualquier llamada o reunión con
 - Plantillas de informe por tipo de reunión (comercial, 1:1, daily, brainstorm)
 - Re-generar informe con instrucciones del usuario ("hazlo más corto", "enfócate en riesgos")
 - Idioma de salida configurable (ES/EN)
+- **Mover las llamadas a OpenAI/Ollama al main process** detrás de IPC (hoy la API key vive en el renderer con `dangerouslyAllowBrowser`; la CSP ya acota la exfiltración como mitigación).
+- **Firma + notarización** de los instaladores para activar la verificación de firma en el auto-update (hoy los builds van sin firmar; ver §10).
 - Tipar los contratos IPC y eliminar los `any` (deuda técnica marcada en eslint como warning)
 
 ### v0.4 — Flujo de equipo
@@ -123,4 +136,25 @@ Que cualquier persona del equipo pueda **grabar cualquier llamada o reunión con
 - **MediaRecorder** para captura (multiplataforma, sin nativos) — limitación: requiere driver virtual para audio del sistema; se acepta hasta v1.0.
 - **Distribución por GitHub Releases + electron-updater** — sin infraestructura propia; el repo es la fuente de verdad.
 - **electron-store cifrado** para la API key; nunca en texto plano ni en logs.
-- **Lint:** reglas `no-explicit-any`/`set-state-in-effect` en warning hasta tipar el puente IPC (v0.3).
+- **Lint:** reglas `no-explicit-any`/`set-state-in-effect` en warning hasta tipar el puente IPC (v0.4).
+- **Proceso Electron en CommonJS** (`dist-electron/package.json` con `{"type":"commonjs"}`) aunque el paquete raíz sea ESM, para evitar fallos de `__dirname` e interop con módulos CJS (electron-updater).
+
+## 10. Seguridad y privacidad (auditoría v0.3)
+
+Auditoría multi-agente (Electron/IPC, privacidad de datos, secretos, prompt-injection, supply chain, branding/PII) con verificación adversarial.
+
+**Corregido en v0.3:**
+- **Contención de rutas en IPC**: `session:save-full` saneaba mal el nombre de carpeta (path traversal) y `audio/report/transcript:load` + `shell:open-path`/`show-item-in-folder` no validaban contención al directorio de almacenamiento. Ahora todo se valida contra `getStorageBase()`.
+- **Hardening de navegación Electron**: `setWindowOpenHandler` + `will-navigate` en ambas ventanas; los enlaces externos abren en el navegador del SO, no dentro de la app.
+- **Content-Security-Policy** en el renderer empaquetado: `connect-src` limitado a `api.openai.com` + localhost (acota exfiltración).
+- **CI con permisos por job** (`build: read`, `release: write`) + `persist-credentials: false` para que el token no quede en `.git/config` durante los postinstall.
+- **Dependencias**: jspdf actualizado a v4 + override de dompurify → `npm audit --omit=dev` = 0 vulnerabilidades.
+- **Branding/PII**: eliminadas menciones a la empresa; autor = "Miguel Reina"; LICENSE con titular; identidad de git con email noreply.
+
+**Diseño local-first (privacidad):** sin telemetría; audio, transcripciones, informes y memoria RAG se quedan en el disco del usuario. Con Ollama no sale nada a internet; con OpenAI solo se envían audio y texto a `api.openai.com` con la clave personal del usuario.
+
+**Deuda de seguridad pendiente (v0.4):**
+- **Auto-update sin firma**: los builds van sin firmar, así que el auto-update no puede verificar firma de código. `autoDownload` está desactivado (requiere acción del usuario). Mitigar con firma Apple/Authenticate + `verifyUpdateCodeSignature`/`publisherName`, y publicar attestations de provenance.
+- **Llamadas IA en el renderer** (`dangerouslyAllowBrowser`): mover al main process tras IPC para reducir el radio de impacto ante una dependencia npm comprometida (la CSP es la mitigación intermedia).
+- **Electron 31 (EOL)**: subir a una línea con soporte; sin ruta de explotación remota plausible hoy (HTML local, `contextIsolation` activo, sin `dangerouslySetInnerHTML`).
+- **encryptionKey fija** de electron-store (ofuscación en reposo, no a prueba de atacante local): evaluar keychain del SO.

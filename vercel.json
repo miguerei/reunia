@@ -1,9 +1,13 @@
 {
   "version": 2,
   "builds": [
-    { "src": "preview.html", "use": "@vercel/static" }
+    { "src": "preview.html", "use": "@vercel/static" },
+    { "src": "install.sh", "use": "@vercel/static" },
+    { "src": "install.ps1", "use": "@vercel/static" }
   ],
   "routes": [
+    { "src": "/install.sh", "dest": "/install.sh", "headers": { "Content-Type": "text/x-shellscript; charset=utf-8" } },
+    { "src": "/install.ps1", "dest": "/install.ps1", "headers": { "Content-Type": "text/plain; charset=utf-8" } },
     { "src": "/(.*)", "dest": "/preview.html" }
   ],
   "headers": [

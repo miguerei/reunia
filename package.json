@@ -1,9 +1,9 @@
 {
   "name": "reunia",
   "productName": "ReunIA",
-  "version": "0.2.0",
+  "version": "0.3.0",
   "description": "Grabador de reuniones con IA. Registra audio del PC y llamadas (Google Meet, Zoom, etc.), transcribe con Whisper y genera informes inteligentes con resúmenes, insights clave, asistentes, recomendaciones, consejos y to-do list. 100% local-first con opción de Ollama.",
-  "author": "Miguel Reina y equipo",
+  "author": "Miguel Reina",
   "license": "MIT",
   "homepage": "https://github.com/miguerei/reunia",
   "repository": {
@@ -22,8 +22,9 @@
     "preview": "vite preview",
     "lint": "eslint .",
     "electron:dev": "npx electron dist-electron/main.js",
-    "dist:mac": "npm run build && tsc -p tsconfig.electron.json && electron-builder --mac --x64 --arm64",
-    "dist:win": "npm run build && tsc -p tsconfig.electron.json && electron-builder --win"
+    "build:electron": "tsc -p tsconfig.electron.json && node -e \"require('fs').writeFileSync('dist-electron/package.json', JSON.stringify({type:'commonjs'}))\"",
+    "dist:mac": "npm run build && npm run build:electron && electron-builder --mac --x64 --arm64",
+    "dist:win": "npm run build && npm run build:electron && electron-builder --win"
   },
   "build": {
     "appId": "com.miguerei.reunia",
@@ -80,14 +81,17 @@
       "releaseType": "release"
     }
   },
+  "overrides": {
+    "dompurify": ">=3.2.4"
+  },
   "dependencies": {
     "date-fns": "^3.6.0",
     "docx": "^8.5.0",
     "electron-store": "^8.2.0",
     "electron-updater": "^6.3.9",
     "file-saver": "^2.0.5",
-    "jspdf": "^2.5.1",
     "framer-motion": "^11.18.2",
+    "jspdf": "^4.2.1",
     "jszip": "^3.10.1",
     "lucide-react": "^0.511.0",
     "openai": "^4.104.0",

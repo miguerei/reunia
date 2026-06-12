@@ -15,12 +15,26 @@
 
 Todo **local-first**: tus grabaciones y memoria quedan en tu PC. Cada miembro del equipo instala y usa su propia cuenta (OpenAI key personal o su propia instancia de Ollama).
 
-## Descarga e instalación (recomendado para el equipo)
+## Instalación con un comando (lo más rápido)
+
+Pega esto en tu terminal — descarga el último release, lo instala y abre la app:
+
+**macOS** (Terminal):
+```bash
+curl -fsSL https://reunia-pied.vercel.app/install.sh | bash
+```
+
+**Windows** (PowerShell):
+```powershell
+irm https://reunia-pied.vercel.app/install.ps1 | iex
+```
+
+## Descarga e instalación manual (alternativa)
 
 1. Ve a la sección **[Releases](https://github.com/miguerei/reunia/releases)** de este repositorio.
 2. Descarga el instalador más reciente:
-   - **macOS**: `ReunIA-*.dmg` (Apple Silicon + Intel)
-   - **Windows**: `ReunIA-*.exe` (NSIS)
+   - **macOS**: `ReunIA-*-arm64.dmg` (Apple Silicon M1/M2/M3/M4) o `ReunIA-*.dmg` (Intel)
+   - **Windows**: `ReunIA.Setup.*.exe` (NSIS)
 3. Instala como cualquier aplicación normal (doble clic en .dmg → arrastra a Aplicaciones, o ejecuta el .exe).
 4. Al abrir por primera vez:
    - La ventana de **Ajustes** se abre automáticamente.
@@ -53,10 +67,11 @@ Todo **local-first**: tus grabaciones y memoria quedan en tu PC. Cada miembro de
 - **macOS**: Instala [BlackHole](https://github.com/ExistentialAudio/BlackHole) (gratis). Crea un "Dispositivo multi-salida" o "agregado" en la Utilidad de Audio MIDI que incluya BlackHole + tus altavoces. Luego en ReunIA selecciona ese dispositivo.
 - **Windows**: Usa un cable de audio virtual como [VB-Cable](https://vb-audio.com/Cable/) o similar. Configura la reproducción del sistema para que salga también por el cable virtual y selecciona ese dispositivo en ReunIA.
 
-## Características (MVP actual)
+## Características
 
 - Botón grande + atajo global (Cmd/Ctrl + Shift + R) para empezar/parar grabación al instante.
-- Captura de audio del sistema + micrófono (recomendado: BlackHole en macOS).
+- **Captura dual**: micrófono + audio del sistema mezclados en una sola grabación (elige los dos dispositivos al empezar a grabar) — ideal para videollamadas con varias personas.
+- **Coach IA en vivo**: durante la grabación, el botón "Resumen últimos minutos" analiza la conversación reciente y devuelve resumen, tono, sugerencias de mejora en tiempo real, perfil comunicativo del interlocutor y nombres detectados.
 - Reproducción inmediata del audio grabado.
 - Procesamiento con **OpenAI Whisper** (transcripción en español de alta calidad) + GPT para informe estructurado.
 - Informe visual bonito con:

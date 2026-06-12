@@ -50,6 +50,23 @@ export interface AppSettings {
 
   // Voice input (Web Speech API) toggle for live ask during recordings. Default on for hands-busy meeting UX.
   enableVoiceInput?: boolean
+
+  // Second audio input (BlackHole / VB-Cable / loopback) mixed with the mic so video-call
+  // audio from the other participants is captured in the same recording.
+  systemAudioDeviceId?: string
+}
+
+/**
+ * Live Coach: on-demand analysis of the last minutes of conversation while recording.
+ * Everything is derived from the rolling transcript via the configured AI provider.
+ */
+export interface LiveCoachResult {
+  summary: string            // resumen de los últimos minutos
+  tone: string               // tono detectado de la conversación (ej. "tenso", "colaborativo")
+  suggestions: string[]      // qué se podría mejorar en la conversación ahora mismo
+  psychProfile: string       // perfil psicológico/comunicativo estimado del interlocutor principal
+  detectedNames: string[]    // nombres de personas detectados en la conversación
+  timestamp: string          // ISO
 }
 
 export interface LiveQA {
@@ -100,6 +117,10 @@ export interface RecordingState {
 
   // Smart context focus filter: influences what the live LLM "sees" / prioritizes for next questions
   contextFocus: string | null   // e.g. 'decisions' | 'actions' | 'risks' | 'budget' | 'people' | custom
+
+  // Live Coach (resumen/tono/sugerencias/perfil/nombres de los últimos minutos)
+  liveCoach: LiveCoachResult | null
+  isCoachRunning: boolean
 }
 
 /**

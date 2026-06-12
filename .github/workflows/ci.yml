@@ -38,5 +38,5 @@ jobs:
       - name: Build renderer
         run: npm run build
 
-      - name: Build electron main (compile TS)
-        run: npx tsc -p tsconfig.electron.json
+      - name: Build electron main (compile TS + CommonJS marker)
+        run: npm run build:electron
