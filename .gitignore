@@ -57,3 +57,4 @@ electron-builder.yml
 # (add any local test recordings if you ever create them outside Documents/ReunIA)
 # test-*.webm
 # temp/
+.vercel

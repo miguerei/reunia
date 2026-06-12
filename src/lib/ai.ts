@@ -337,7 +337,7 @@ async function generateReportWithOllama(settings: AppSettings, userPrompt: strin
 }
 
 function parseReportFromContent(content: string | undefined | null): Report {
-  let parsed: any = {}
+  let parsed: any
   try {
     // Ollama sometimes returns the JSON wrapped in ```json ... ```
     const cleaned = (content || '').replace(/```json|```/g, '').trim()

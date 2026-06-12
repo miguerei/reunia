@@ -5,8 +5,9 @@
   <br><br>
   <h3>Grabador de reuniones con IA • 100% local</h3>
   <p>
-    <a href="preview.html">📸 Ver vista previa interactiva</a> &nbsp;•&nbsp; 
-    <a href="https://github.com/miguelreina/reunia">GitHub</a>
+    <a href="https://reunia-pied.vercel.app">🌐 Landing / demo</a> &nbsp;•&nbsp;
+    <a href="https://github.com/miguerei/reunia/releases">⬇️ Descargas</a> &nbsp;•&nbsp;
+    <a href="docs/PRD.md">📋 PRD / Roadmap</a>
   </p>
 </div>
 
@@ -16,7 +17,7 @@ Todo **local-first**: tus grabaciones y memoria quedan en tu PC. Cada miembro de
 
 ## Descarga e instalación (recomendado para el equipo)
 
-1. Ve a la sección **[Releases](https://github.com/miguelreina/reunia/releases)** de este repositorio.
+1. Ve a la sección **[Releases](https://github.com/miguerei/reunia/releases)** de este repositorio.
 2. Descarga el instalador más reciente:
    - **macOS**: `ReunIA-*.dmg` (Apple Silicon + Intel)
    - **Windows**: `ReunIA-*.exe` (NSIS)
@@ -25,6 +26,17 @@ Todo **local-first**: tus grabaciones y memoria quedan en tu PC. Cada miembro de
    - La ventana de **Ajustes** se abre automáticamente.
    - Pega tu clave de OpenAI **o** cambia a **Ollama (Local)**.
    - (Opcional) Elige tu carpeta de almacenamiento.
+
+> **⚠️ macOS "ReunIA está dañada" / Gatekeeper**
+> Si al abrir la app después de instalar el DMG te aparece el mensaje "ReunIA está dañada y no se puede abrir. Deberías trasladarla a la papelera", es porque los builds actuales todavía no están firmados + notarizados por Apple (problema muy común en Electron).
+>
+> **Solución rápida (haz esto una sola vez):**
+> ```bash
+> xattr -cr /Applications/ReunIA.app
+> ```
+> Luego abre la app con botón derecho → Abrir (la primera vez).
+>
+> Estamos configurando firma de código + notarización en el pipeline de releases para que esto desaparezca en futuras versiones. Mientras tanto, el comando de arriba resuelve el problema para la mayoría de usuarios.
 
 ¡Listo! Cada persona del equipo hace esto de forma independiente en su PC con su propia cuenta y sus grabaciones quedan privadas en su máquina.
 

@@ -46,9 +46,9 @@ const isDev = !app.isPackaged
 
 function getResourcePath(...paths: string[]) {
   if (isDev) {
-    return join(process.cwd(), ...paths)
+    return path.join(process.cwd(), ...paths)
   }
-  return join(process.resourcesPath, ...paths)
+  return path.join(process.resourcesPath, ...paths)
 }
 
 function createWindow() {
@@ -62,7 +62,7 @@ function createWindow() {
     titleBarStyle: 'hiddenInset',
     trafficLightPosition: { x: 16, y: 16 },
     webPreferences: {
-      preload: join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
@@ -73,7 +73,7 @@ function createWindow() {
     mainWindow.loadURL('http://localhost:5173')
     // mainWindow.webContents.openDevTools({ mode: 'detach' })
   } else {
-    mainWindow.loadFile(join(__dirname, '../dist/index.html'))
+    mainWindow.loadFile(path.join(__dirname, '../dist/index.html'))
   }
 
   mainWindow.on('closed', () => {
@@ -137,7 +137,7 @@ function createCompanionWindow() {
     resizable: true,
     skipTaskbar: false,
     webPreferences: {
-      preload: join(__dirname, 'preload.js'),
+      preload: path.join(__dirname, 'preload.js'),
       contextIsolation: true,
       nodeIntegration: false,
       sandbox: false,
@@ -146,7 +146,7 @@ function createCompanionWindow() {
 
   const url = isDev
     ? 'http://localhost:5173?companion=1'
-    : `file://${join(__dirname, '../dist/index.html')}?companion=1`
+    : `file://${path.join(__dirname, '../dist/index.html')}?companion=1`
 
   companionWindow.loadURL(url)
 
@@ -356,7 +356,7 @@ function updateTrayMenu(recording: boolean, elapsed?: string) {
       label: 'Abrir carpeta de grabaciones',
       click: async () => {
         const s = (await store.get('settings')) as AppSettings
-        const p = s?.storagePath || join(app.getPath('documents'), 'ReunIA')
+        const p = s?.storagePath || path.join(app.getPath('documents'), 'ReunIA')
         shell.openPath(p)
       },
     },
@@ -447,7 +447,7 @@ function setupIpc() {
   ipcMain.handle('settings:get', async () => {
     let s = store.get('settings') as AppSettings | undefined
     if (!s) {
-      const defaultPath = join(app.getPath('documents'), 'ReunIA')
+      const defaultPath = path.join(app.getPath('documents'), 'ReunIA')
       if (!existsSync(defaultPath)) mkdirSync(defaultPath, { recursive: true })
       s = { ...DEFAULT_SETTINGS, storagePath: defaultPath }
       store.set('settings', s)
@@ -507,8 +507,8 @@ function setupIpc() {
   ipcMain.handle('session:save-full', async (_event, payload: { folderName: string; session: any; transcript?: string; report?: any; audioBuffer: ArrayBuffer }) => {
     try {
       const settings = (store.get('settings') || {}) as any
-      const base = settings.storagePath || join(app.getPath('documents'), 'ReunIA')
-      const folderPath = join(base, payload.folderName)
+      const base = settings.storagePath || path.join(app.getPath('documents'), 'ReunIA')
+      const folderPath = path.join(base, payload.folderName)
 
       if (!existsSync(folderPath)) mkdirSync(folderPath, { recursive: true })
 
@@ -516,20 +516,20 @@ function setupIpc() {
 
       // Audio
       const audioExt = 'webm'
-      writeFileSync(join(folderPath, `audio.${audioExt}`), Buffer.from(payload.audioBuffer))
+      writeFileSync(path.join(folderPath, `audio.${audioExt}`), Buffer.from(payload.audioBuffer))
 
       // Metadata: always write full payload.session (carries liveQAs, hasReport etc). If report present in payload, force hasReport:true in the persisted session for reliable reconstruction.
       const sessToWrite = payload.report ? { ...payload.session, hasReport: true } : payload.session
-      writeFileSync(join(folderPath, 'metadata.json'), JSON.stringify(sessToWrite, null, 2))
+      writeFileSync(path.join(folderPath, 'metadata.json'), JSON.stringify(sessToWrite, null, 2))
 
       if (payload.transcript) {
-        writeFileSync(join(folderPath, 'transcript.txt'), payload.transcript)
+        writeFileSync(path.join(folderPath, 'transcript.txt'), payload.transcript)
       }
       if (payload.report) {
-        writeFileSync(join(folderPath, 'report.json'), JSON.stringify(payload.report, null, 2))
+        writeFileSync(path.join(folderPath, 'report.json'), JSON.stringify(payload.report, null, 2))
         // Also nice markdown
         const md = generateReportMarkdown(payload.session, payload.report)
-        writeFileSync(join(folderPath, 'informe.md'), md)
+        writeFileSync(path.join(folderPath, 'informe.md'), md)
       }
 
       console.log(`[memory] session:save-full folder:${payload.folderName} liveQAs:${payload.session?.liveQAs?.length || 0} hasReport:${!!payload.report}`)
@@ -544,28 +544,28 @@ function setupIpc() {
   ipcMain.handle('sessions:list', async () => {
     try {
       const settings = (store.get('settings') || {}) as any
-      const base = settings.storagePath || join(app.getPath('documents'), 'ReunIA')
+      const base = settings.storagePath || path.join(app.getPath('documents'), 'ReunIA')
       if (!existsSync(base)) return []
       const dirents = readdirSync(base, { withFileTypes: true })
       const results: any[] = []
       for (const ent of dirents) {
         if (!ent.isDirectory()) continue
-        const metaPath = join(base, ent.name, 'metadata.json')
+        const metaPath = path.join(base, ent.name, 'metadata.json')
         if (existsSync(metaPath)) {
           try {
             const raw = readFileSync(metaPath, 'utf8')
             const sess = JSON.parse(raw)
-            sess.folderPath = join(base, ent.name)
+            sess.folderPath = path.join(base, ent.name)
             // Harden: ensure hasReport reflects presence of report.json on disk (in case metadata flag lagged or save used stale session obj).
             // This makes list carry accurate hasReport for UI badges and detail views (App also uses currentSessionData for full report obj).
-            const reportPath = join(base, ent.name, 'report.json')
+            const reportPath = path.join(base, ent.name, 'report.json')
             if (existsSync(reportPath)) {
               sess.hasReport = true
             }
             // Minor helper comment: future "index report insights" could read report.json here and feed high-signal summary/insights to memory index (beyond just starred liveQAs).
             // For now only liveQAs stars are indexed (via indexStarredFromSession on load/add).
             results.push(sess)
-          } catch (e) {
+          } catch {
             console.warn('Skipping bad metadata.json in', ent.name)
           }
         }
@@ -591,7 +591,7 @@ function setupIpc() {
         console.warn('[security] audio:load rejected unsafe filename', audioFileName)
         return null
       }
-      const fullPath = join(folderPath, safeName)
+      const fullPath = path.join(folderPath, safeName)
       // Basic containment: the resolved path should be inside the provided folderPath (defense against ../)
       const resolved = path.resolve(fullPath)
       const resolvedFolder = path.resolve(folderPath)
@@ -618,7 +618,7 @@ function setupIpc() {
   ipcMain.handle('report:load', async (_e, folderPath: string) => {
     try {
       if (!folderPath) return null
-      const reportPath = join(folderPath, 'report.json')
+      const reportPath = path.join(folderPath, 'report.json')
       const resolved = path.resolve(reportPath)
       const resolvedFolder = path.resolve(folderPath)
       if (!resolved.startsWith(resolvedFolder) || !existsSync(resolved)) return null
@@ -636,7 +636,7 @@ function setupIpc() {
   ipcMain.handle('transcript:load', async (_e, folderPath: string) => {
     try {
       if (!folderPath) return null
-      const transcriptPath = join(folderPath, 'transcript.txt')
+      const transcriptPath = path.join(folderPath, 'transcript.txt')
       const resolved = path.resolve(transcriptPath)
       const resolvedFolder = path.resolve(folderPath)
       if (!resolved.startsWith(resolvedFolder) || !existsSync(resolved)) return null
@@ -651,7 +651,7 @@ function setupIpc() {
 
   // Memory index (local-only JSON in userData for self-improvement seeds)
   function getMemoryPath() {
-    return join(app.getPath('userData'), 'reunia-memory.json')
+    return path.join(app.getPath('userData'), 'reunia-memory.json')
   }
 
   // === Companion window + live state sync (supports compact/stealth always-on-top PiP) ===
@@ -738,7 +738,7 @@ function setupIpc() {
   ipcMain.handle('memory:save', async (_e, entries: any[]) => {
     try {
       const p = getMemoryPath()
-      const dir = join(app.getPath('userData'))
+      const dir = path.join(app.getPath('userData'))
       if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
       writeFileSync(p, JSON.stringify(entries || [], null, 2))
       console.log(`[memory] save count:${(entries || []).length}`)
@@ -790,7 +790,7 @@ function setupIpc() {
         unlinkSync(p)
       } else {
         // Write empty array to ensure file exists as []
-        const dir = join(app.getPath('userData'))
+        const dir = path.join(app.getPath('userData'))
         if (!existsSync(dir)) mkdirSync(dir, { recursive: true })
         writeFileSync(p, '[]')
       }
@@ -831,8 +831,7 @@ function setupIpc() {
 }
 
 function ensureStorage() {
-  const userData = app.getPath('userData')
-  const recordingsDir = join(app.getPath('documents'), 'ReunIA')
+  const recordingsDir = path.join(app.getPath('documents'), 'ReunIA')
   if (!existsSync(recordingsDir)) {
     mkdirSync(recordingsDir, { recursive: true })
   }

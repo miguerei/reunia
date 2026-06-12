@@ -1,6 +1,6 @@
 import React, { useEffect, useState, useRef, useMemo } from 'react'
 import { 
-  Mic, MicOff, Square, Play, Pause, Download, FolderOpen, Trash2, RefreshCw, 
+  Mic, MicOff, Square, Play, Pause, FolderOpen, Trash2, RefreshCw,
   Settings, Clock, Users, CheckSquare, Lightbulb, Target, 
   MessageSquare, FileText, Search, X, Star, Filter, AlertTriangle, DollarSign, CheckCircle, Copy
 } from 'lucide-react'
@@ -15,6 +15,8 @@ import type { Session, Report, RecordingMode } from './types'
 import { generateReport, getFocusLabel } from './lib/ai'
 import { saveSessionToDisk, createSessionFolderName } from './lib/storage'
 import * as fileSaver from 'file-saver'
+import * as docxLib from 'docx'
+import jsPDFModule from 'jspdf'
 import { retrieveRelevantAsync, entriesToPromptSnippets, indexStarredFromSession, indexReportInsights, getCachedMemory } from './lib/memory'
 
 // Simple audio device picker (populated at runtime)
@@ -1694,6 +1696,7 @@ export default function ReunIA() {
   function sanitizeText(text: string | undefined | null): string {
     if (!text) return ''
     // Remove control characters (including null bytes) and cap length for safety
+    // eslint-disable-next-line no-control-regex
     return text.replace(/[\x00-\x08\x0B\x0C\x0E-\x1F\x7F]/g, '').slice(0, 50000)
   }
   function safeFileName(name: string): string {
@@ -1708,7 +1711,7 @@ export default function ReunIA() {
       return
     }
     try {
-      const { Document, Packer, Paragraph, TextRun, HeadingLevel } = await import('docx')
+      const { Document, Packer, Paragraph, TextRun, HeadingLevel } = docxLib
       const children: any[] = [
         new Paragraph({ heading: HeadingLevel.HEADING_1, children: [new TextRun(sanitizeText(session.title))] }),
         new Paragraph({ children: [new TextRun(`Fecha: ${format(new Date(session.date), 'PPP p', { locale: es })} • Duración: ${Math.floor(session.durationSec / 60)} min`)] }),
@@ -1743,7 +1746,7 @@ export default function ReunIA() {
       return
     }
     try {
-      const jsPDF = (await import('jspdf')).default
+      const jsPDF = (jsPDFModule as any).default || (jsPDFModule as any)
       const doc = new jsPDF()
       let y = 20
       const addText = (text: string, size = 12) => {
@@ -1783,7 +1786,7 @@ export default function ReunIA() {
       const msg = models ? `Conectado. Modelos: ${models}` : 'Conectado a Ollama (sin modelos listados)'
       setOllamaTestStatus({ loading: false, message: msg })
       toast.success('Ollama conectado', { description: msg })
-    } catch (err: any) {
+    } catch {
       const msg = `No se pudo conectar a ${settings.ollamaBaseUrl}. ¿Ollama está corriendo? (ollama serve)`
       setOllamaTestStatus({ loading: false, message: msg })
       toast.error('Ollama no responde', { description: msg })
@@ -3089,7 +3092,7 @@ export default function ReunIA() {
                     {isProcessing && processingSessionId === selectedSession.id ? (
                       <><RefreshCw className="w-4 h-4 animate-spin" /> Procesando...</>
                     ) : (
-                      <><Lightbulb className="w-4 h-4" /> Generar / Re-generar informe
+                      <><Lightbulb className="w-4 h-4" /> Generar / Re-generar informe</>
                     )}
                   </button>
 
