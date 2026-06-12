@@ -51,18 +51,31 @@ jobs:
             echo "Apple secrets present - keeping notarization enabled"
           fi
 
+      # --publish never: this job only builds; the `release` job below publishes.
+      # Signing env vars are exported only when the secrets exist — electron-builder
+      # treats an *empty* CSC_LINK as a certificate path and fails ("not a file").
       - name: Build renderer + compile Electron + create installer
-        run: ${{ matrix.script }}
+        shell: bash
         env:
-          # --- macOS signing + notarization (only active if secrets are configured) ---
-          # Required for users to open the DMG without the "app is damaged" Gatekeeper error.
-          # See setup docs at the bottom of this file.
-          CSC_IDENTITY_AUTO_DISCOVERY: ${{ secrets.MAC_CERTIFICATE != '' }}
-          CSC_LINK: ${{ secrets.MAC_CERTIFICATE }}
-          CSC_KEY_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
-          APPLE_ID: ${{ secrets.APPLE_ID }}
-          APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
-          APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+          SECRET_MAC_CERTIFICATE: ${{ secrets.MAC_CERTIFICATE }}
+          SECRET_MAC_CERTIFICATE_PASSWORD: ${{ secrets.MAC_CERTIFICATE_PASSWORD }}
+          SECRET_APPLE_ID: ${{ secrets.APPLE_ID }}
+          SECRET_APPLE_APP_SPECIFIC_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
+          SECRET_APPLE_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
+        run: |
+          if [ -n "$SECRET_MAC_CERTIFICATE" ]; then
+            export CSC_LINK="$SECRET_MAC_CERTIFICATE"
+            export CSC_KEY_PASSWORD="$SECRET_MAC_CERTIFICATE_PASSWORD"
+            export CSC_IDENTITY_AUTO_DISCOVERY=true
+          else
+            export CSC_IDENTITY_AUTO_DISCOVERY=false
+          fi
+          if [ -n "$SECRET_APPLE_ID" ]; then
+            export APPLE_ID="$SECRET_APPLE_ID"
+            export APPLE_APP_SPECIFIC_PASSWORD="$SECRET_APPLE_APP_SPECIFIC_PASSWORD"
+            export APPLE_TEAM_ID="$SECRET_APPLE_TEAM_ID"
+          fi
+          ${{ matrix.script }} -- --publish never
 
       - name: Upload build artifacts
         uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
