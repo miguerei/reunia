@@ -93,7 +93,7 @@
         </div>
         <div class="px-2.5 py-1 rounded-full bg-white/5 text-xs font-medium text-emerald-400 flex items-center gap-1.5">
           <div class="w-1.5 h-1.5 bg-emerald-400 rounded-full animate-pulse"></div>
-          <span>v0.1.0</span>
+          <span>v0.3.0</span>
         </div>
       </div>
       
@@ -124,31 +124,39 @@
       <span class="reunia-gradient">Entiende.</span>
     </h1>
     
-    <p class="max-w-md mx-auto text-xl text-white/70 mt-4">
-      La aplicación de escritorio que registra tus reuniones, responde en tiempo real y genera informes inteligentes con IA. 
-      Todo en tu equipo. Privado, seguro y fácil de usar.
+    <p class="max-w-xl mx-auto text-xl text-white/70 mt-4">
+      Graba tus reuniones (micrófono + audio de la videollamada), recibe un <strong class="text-white/90">coach de IA en vivo</strong> con resumen, tono y perfil del interlocutor, y genera informes inteligentes.
+      Todo local. Privado, gratis y fácil.
     </p>
 
-    <div class="flex items-center justify-center gap-x-3 mt-8">
-      <a href="https://github.com/miguerei/reunia/releases" target="_blank"
+    <!-- Instalación de un comando -->
+    <div class="max-w-2xl mx-auto mt-8 grid sm:grid-cols-2 gap-3 text-left">
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+        <div class="flex items-center gap-2 text-sm font-semibold mb-2"><i class="fa-brands fa-apple"></i> macOS — un comando</div>
+        <code class="block text-xs text-emerald-300 bg-black/40 rounded-lg p-2.5 overflow-x-auto select-all">curl -fsSL https://reunia-pied.vercel.app/install.sh | bash</code>
+      </div>
+      <div class="rounded-2xl border border-white/10 bg-white/5 p-4">
+        <div class="flex items-center gap-2 text-sm font-semibold mb-2"><i class="fa-brands fa-windows"></i> Windows — un comando</div>
+        <code class="block text-xs text-emerald-300 bg-black/40 rounded-lg p-2.5 overflow-x-auto select-all">irm https://reunia-pied.vercel.app/install.ps1 | iex</code>
+      </div>
+    </div>
+
+    <div class="flex items-center justify-center gap-x-3 mt-6">
+      <a href="https://github.com/miguerei/reunia/releases/latest" target="_blank"
          class="px-8 py-4 rounded-3xl bg-white text-black font-semibold flex items-center gap-x-2 hover:bg-white/90 transition-all text-base active:scale-[0.985]">
         <i class="fa-solid fa-download mr-1"></i>
-        Descargar ReunIA (DMG)
+        Descargar instalador
       </a>
-      
-      <button onclick="document.getElementById('live-demo').scrollIntoView({ behavior: 'smooth' })" 
+
+      <button onclick="document.getElementById('live-demo').scrollIntoView({ behavior: 'smooth' })"
               class="px-7 py-4 rounded-3xl border border-white/20 hover:bg-white/5 font-medium flex items-center gap-x-2 transition-colors text-base">
         <i class="fa-solid fa-play"></i>
         <span>Ver demo interactiva</span>
       </button>
     </div>
-    <div class="mt-4 text-xs text-white/60">
-      Una vez que crees el repo en GitHub y subas un Release con los instaladores, este botón funcionará.<br>
-      <strong>Conector Vercel + GitHub:</strong> Conecta el repo en Vercel Settings > Git para auto-deploy de esta landing en cada push.
-    </div>
-    
-    <div class="mt-4 text-xs text-white/50">
-      macOS • Windows • 100% local y privado • Open source
+
+    <div class="mt-5 text-xs text-white/50">
+      macOS (Apple Silicon + Intel) • Windows • 100% local y privado • Gratis y open source
     </div>
   </div>
 
@@ -185,8 +193,8 @@
       </div>
       <div class="bg-[#16181f] border border-white/10 rounded-3xl p-6">
         <div class="text-2xl mb-3">2️⃣</div>
-        <div class="font-semibold mb-2">Graba y pregunta en vivo</div>
-        <div class="text-sm text-white/70">Pulsa el botón grande o usa Cmd/Ctrl + Shift + R. Durante la reunión haz preguntas en la caja "Asistente en vivo". La IA te responde con lo que se ha dicho en los últimos minutos. Usa los chips de foco (Decisiones, Acciones...) para ser más preciso. Marca con ★ las respuestas importantes para que la app "aprenda" para futuras reuniones.</div>
+        <div class="font-semibold mb-2">Graba todo + Coach IA en vivo</div>
+        <div class="text-sm text-white/70">Pulsa el botón grande o Cmd/Ctrl + Shift + R. Graba <strong>tu micro y el audio de la videollamada a la vez</strong>. Durante la reunión, el botón "Resumen últimos minutos" te da resumen, <strong>tono de la conversación, sugerencias de mejora, perfil del interlocutor y los nombres detectados</strong>. También puedes preguntar lo que quieras en la caja del asistente.</div>
       </div>
       <div class="bg-[#16181f] border border-white/10 rounded-3xl p-6">
         <div class="text-2xl mb-3">3️⃣</div>
