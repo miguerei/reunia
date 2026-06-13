@@ -1544,10 +1544,15 @@ export default function ReunIA() {
 
   // ===================== AI PROCESSING =====================
   async function processWithAI(session: Session) {
-    if (!settings.openaiApiKey) {
-      toast.error('Falta la API Key de OpenAI', {
-        description: 'Ve a Ajustes y pega tu clave de OpenAI para usar Whisper + GPT.',
-      })
+    // Cada proveedor decide qué credencial necesita. En modo equipo (Gemini) no se pide nada.
+    const p = settings.aiProvider
+    const geminiTeam = p === 'gemini' && (settings.geminiMode ?? 'team') === 'team'
+    let missing: string | null = null
+    if (p === 'openai' && !settings.openaiApiKey?.trim()) missing = 'Falta la clave de OpenAI. Configúrala en Ajustes o cambia a Gemini (gratis).'
+    else if (p === 'gemini' && !geminiTeam && !settings.geminiApiKey?.trim()) missing = 'Falta tu clave de Gemini. Actívala en Ajustes o usa la clave del equipo.'
+    // Gemini modo equipo y Ollama no requieren clave aquí.
+    if (missing) {
+      toast.error('Configura la IA', { description: missing })
       setSettingsOpen(true)
       return
     }
@@ -1601,9 +1606,11 @@ export default function ReunIA() {
         learnedForReport.length ? learnedForReport : undefined
       )
 
-      // Update session
+      // Update session — usa el título inteligente que generó la IA (si vino uno)
+      const smartTitle = report.title && report.title.trim().length > 2 ? report.title.trim() : session.title
       const updated: Session = {
         ...session,
+        title: smartTitle,
         hasTranscript: true,
         hasReport: true,
       }
@@ -1622,9 +1629,9 @@ export default function ReunIA() {
         console.warn('indexReportInsights skipped', e)
       }
 
-      // Save files to disk if possible (best effort)
+      // Save files to disk if possible (best effort) — con el título inteligente
       try {
-        await saveSessionToDisk(session, transcript, report, lastBlob)
+        await saveSessionToDisk(updated, transcript, report, lastBlob)
       } catch (e) {
         console.warn('Could not persist files to disk yet', e)
       }
@@ -2058,7 +2065,7 @@ export default function ReunIA() {
           <button onClick={() => setSettingsOpen(true)} className="btn btn-ghost px-3 flex items-center gap-2">
             <Settings className="w-4 h-4" />
             <span className="text-xs text-text-muted hidden sm:inline">
-              {settings.aiProvider === 'ollama' ? 'Ollama' : 'OpenAI'}
+              {settings.aiProvider === 'ollama' ? 'Ollama' : settings.aiProvider === 'gemini' ? ((settings.geminiMode ?? 'team') === 'team' ? 'Gemini · Equipo' : 'Gemini') : 'OpenAI'}
             </span>
           </button>
         </div>
@@ -2303,7 +2310,7 @@ export default function ReunIA() {
                         </span>
                       )}
                     </div>
-                    <div className="text-xs text-text-muted">• usando {settings.aiProvider === 'ollama' ? 'Ollama local' : 'OpenAI'}</div>
+                    <div className="text-xs text-text-muted">• usando {settings.aiProvider === 'ollama' ? 'Ollama local' : settings.aiProvider === 'gemini' ? 'Gemini' : 'OpenAI'}</div>
                   </div>
                   <div className="flex items-center gap-2 text-[11px] text-text-muted tabular-nums">
                     Contexto: ~{Math.floor((recording.recentAudioChunks?.length || 0) / 60)} min
@@ -3233,9 +3240,42 @@ export default function ReunIA() {
                     )}
                   </div>
 
+                  {/* Tarjetas de un vistazo (visual + escaneable) */}
+                  <div className="grid grid-cols-2 sm:grid-cols-4 gap-2.5 mb-5">
+                    {[
+                      { icon: <Clock className="w-4 h-4" />, label: 'Duración', value: `${Math.max(1, Math.round((selectedSession?.durationSec || 0) / 60))} min` },
+                      { icon: <Users className="w-4 h-4" />, label: 'Participantes', value: String(new Set([...(currentSessionData.report.attendees || []), ...(currentSessionData.report.speakers || [])]).size || '—') },
+                      { icon: <CheckSquare className="w-4 h-4" />, label: 'Acciones', value: String(currentSessionData.report.todoList?.length || 0) },
+                      { icon: <Lightbulb className="w-4 h-4" />, label: 'Insights', value: String(currentSessionData.report.keyInsights?.length || 0) },
+                    ].map((c, i) => (
+                      <div key={i} className="rounded-2xl bg-bg/60 border border-white/10 p-3.5 flex flex-col gap-1">
+                        <div className="text-accent">{c.icon}</div>
+                        <div className="text-2xl font-semibold tracking-tight tabular-nums">{c.value}</div>
+                        <div className="text-[11px] text-text-muted">{c.label}</div>
+                      </div>
+                    ))}
+                  </div>
+
                   {/* Summary */}
                   <div className="report-section">
-                    <h3><MessageSquare className="w-4 h-4" /> Resumen</h3>
+                    <div className="flex items-center justify-between">
+                      <h3><MessageSquare className="w-4 h-4" /> Resumen</h3>
+                      <button
+                        onClick={() => {
+                          const r = currentSessionData.report
+                          const s = selectedSession
+                          const txt = `📋 ${s?.title || 'Reunión'}\n\n${r.summary}\n\n` +
+                            (r.todoList.length ? `✅ Acciones:\n${r.todoList.map(t => `• ${t.task}`).join('\n')}\n\n` : '') +
+                            (r.keyInsights.length ? `💡 Insights:\n${r.keyInsights.map(i => `• ${i}`).join('\n')}` : '')
+                          navigator.clipboard.writeText(txt.trim())
+                          toast.success('Resumen copiado', { description: 'Pégalo en Slack, email o donde quieras.' })
+                        }}
+                        className="btn btn-secondary text-xs flex items-center gap-1.5 px-3 py-1"
+                        title="Copiar el resumen + acciones al portapapeles"
+                      >
+                        <Copy className="w-3.5 h-3.5" /> Copiar resumen
+                      </button>
+                    </div>
                     <p className="text-[15px] leading-relaxed text-text-secondary">{currentSessionData.report.summary}</p>
                   </div>
 

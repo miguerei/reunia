@@ -427,6 +427,7 @@ const SYSTEM_PROMPT = `Eres un asistente experto en actas y análisis de reunion
 Devuelve SOLO un JSON válido con esta estructura exacta (sin markdown, sin explicaciones extra, sin texto fuera del JSON):
 
 {
+  "title": "Título corto y descriptivo de la reunión (4-8 palabras, sin comillas, en español)",
   "summary": "Resumen ejecutivo en 3-5 frases claras y accionables.",
   "keyInsights": ["insight 1", "insight 2", ...],
   "attendees": ["Nombre o rol si se menciona", ...],
@@ -546,6 +547,7 @@ function parseReportFromContent(content: string | undefined | null): Report {
   }
 
   return {
+    title: typeof parsed.title === 'string' ? parsed.title.replace(/["\n]/g, '').trim().slice(0, 80) : undefined,
     summary: parsed.summary || 'No se pudo generar un resumen claro.',
     keyInsights: Array.isArray(parsed.keyInsights) ? parsed.keyInsights : [],
     attendees: Array.isArray(parsed.attendees) ? parsed.attendees : [],
