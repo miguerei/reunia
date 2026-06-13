@@ -48,6 +48,12 @@ export interface AppSettings {
   geminiApiKey?: string
   geminiModel?: string   // ej. 'gemini-2.0-flash'
 
+  // Modo de Gemini:
+  //  - 'team': usa el proxy compartido del equipo (no requiere clave; la clave vive en Vercel).
+  //  - 'own':  usa la clave personal (geminiApiKey).
+  geminiMode?: 'team' | 'own'
+  geminiProxyUrl?: string   // URL del proxy del equipo (no es secreta). Default al desplegado.
+
   // Transcription can be OpenAI or any OpenAI-compatible local server (e.g. faster-whisper, whisper-asr-webservice)
   transcriptionMode: 'openai' | 'local'
   transcriptionEndpoint: string   // e.g. http://localhost:8000/v1  (must be OpenAI compatible)
