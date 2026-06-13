@@ -2,7 +2,7 @@
 
 **Producto:** ReunIA — Grabador de reuniones con informes de IA, 100% local-first
 **Owner:** Miguel Reina
-**Estado:** v0.3.0 — Live Coach + captura dual de audio + instalación de un comando + hardening de seguridad
+**Estado:** v0.3.1 — Coach IA en vivo, captura dual, proveedor Gemini gratis, instalación de un comando + hardening de seguridad
 **Última actualización:** 2026-06-13
 
 ---
@@ -41,7 +41,7 @@ Que cualquier persona del equipo pueda **grabar cualquier llamada o reunión con
 - ✅ Atajo global `Cmd/Ctrl+Shift+R`, bandeja del sistema, power-save blocker
 - ✅ Transcripción con Whisper (OpenAI) o endpoint local compatible
 - ✅ Informe estructurado (resumen, insights, asistentes, intervenciones, recomendaciones, consejos, to-do list editable)
-- ✅ Dual provider: OpenAI o Ollama (informes 100% locales)
+- ✅ Triple provider: **Gemini (gratis)**, OpenAI (de pago) u Ollama (100% local)
 - ✅ Preguntas en vivo durante la reunión (buffer rolling) + memoria local de auto-mejora (RAG con ★)
 - ✅ Sesiones guardadas en `~/Documents/ReunIA/<fecha>_<tema>/` (audio + transcript + report.json + informe.md)
 - ✅ Exportación: Markdown, JSON, DOCX, PDF, ZIP
