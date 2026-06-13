@@ -23,6 +23,6 @@ Start-Process -FilePath $installerPath -Wait
 
 Write-Host ""
 Write-Host "✅ ReunIA instalada. Primer uso:" -ForegroundColor Green
-Write-Host "   1. En Ajustes (se abre sola): pega tu clave de OpenAI o elige Ollama (local)."
-Write-Host "   2. Para grabar Meet/Zoom completo instala VB-Cable: https://vb-audio.com/Cable/"
-Write-Host "   3. Pulsa grabar (o Ctrl+Shift+R) y al terminar tendrás el informe con IA."
+Write-Host "   1. En Ajustes (se abre sola): elige Gemini (GRATIS, clave en 30s) u Ollama (local), o pega tu clave de OpenAI."
+Write-Host "   2. Tu microfono ya graba. Para capturar tambien a los demas en videollamadas, instala VB-Cable (https://vb-audio.com/Cable/) y usalo como 'audio del sistema'."
+Write-Host "   3. Pulsa grabar (o Ctrl+Shift+R). Durante la reunion, prueba el boton 'Resumen ultimos minutos' (Coach IA)."

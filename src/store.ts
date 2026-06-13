@@ -99,6 +99,10 @@ const defaultSettings: AppSettings = {
   ollamaBaseUrl: 'http://localhost:11434',
   ollamaModel: 'llama3.2',
 
+  // Gemini (gratis)
+  geminiApiKey: '',
+  geminiModel: 'gemini-2.0-flash',
+
   transcriptionMode: 'openai',
   transcriptionEndpoint: 'http://localhost:8000/v1',
 

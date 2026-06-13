@@ -39,10 +39,14 @@ export interface AppSettings {
   autoProcess: boolean
   preferredModel: string
 
-  // Local AI support (Ollama etc.)
-  aiProvider: 'openai' | 'ollama'
+  // AI provider: OpenAI (de pago), Gemini (gratis con clave gratuita) u Ollama (100% local).
+  aiProvider: 'openai' | 'ollama' | 'gemini'
   ollamaBaseUrl: string
   ollamaModel: string
+
+  // Google Gemini (free tier, no requiere tarjeta). Clave desde Google AI Studio.
+  geminiApiKey?: string
+  geminiModel?: string   // ej. 'gemini-2.0-flash'
 
   // Transcription can be OpenAI or any OpenAI-compatible local server (e.g. faster-whisper, whisper-asr-webservice)
   transcriptionMode: 'openai' | 'local'

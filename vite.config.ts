@@ -8,6 +8,10 @@ import { resolve } from 'path'
 //   2. npx electron dist-electron/main.js   (after compiling main with tsc)
 
 export default defineConfig({
+  // Relative asset paths: the packaged app loads index.html via file://, so
+  // absolute "/assets/..." would resolve to the filesystem root (black screen).
+  // "./" makes Vite emit "./assets/..." relative to index.html.
+  base: './',
   plugins: [react()],
   resolve: {
     alias: {
