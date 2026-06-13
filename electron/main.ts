@@ -542,6 +542,22 @@ function setupIpc() {
     }
     shell.showItemInFolder(fullPath)
   })
+  // Open an external https URL in the OS browser. Allowlisted hosts only (e.g. the
+  // free Gemini key page) so the renderer can't open arbitrary/malicious URLs.
+  ipcMain.handle('shell:open-external', async (_e, url: string) => {
+    try {
+      const u = new URL(String(url))
+      const allowedHosts = ['aistudio.google.com', 'github.com', 'ollama.com', 'platform.openai.com', 'vb-audio.com', 'existential.audio']
+      if (u.protocol === 'https:' && allowedHosts.some((h) => u.hostname === h || u.hostname.endsWith('.' + h))) {
+        await shell.openExternal(u.toString())
+        return true
+      }
+      console.warn('[security] shell:open-external rejected', url)
+      return false
+    } catch {
+      return false
+    }
+  })
 
   ipcMain.handle('app:get-version', () => app.getVersion())
 
@@ -998,7 +1014,7 @@ app.whenReady().then(() => {
             "img-src 'self' data: blob:; " +
             "font-src 'self' data:; " +
             "media-src 'self' blob:; " +
-            "connect-src 'self' https://api.openai.com http://localhost:* http://127.0.0.1:*; " +
+            "connect-src 'self' https://api.openai.com https://generativelanguage.googleapis.com http://localhost:* http://127.0.0.1:*; " +
             "object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
           ],
         },

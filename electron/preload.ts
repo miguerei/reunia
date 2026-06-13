@@ -13,6 +13,7 @@ export type ElectronAPI = {
   // App controls
   openPath: (path: string) => Promise<void>
   showItemInFolder: (fullPath: string) => void
+  openExternal: (url: string) => Promise<boolean>
   getAppVersion: () => Promise<string>
 
   // Tray / recording state sync
@@ -108,6 +109,7 @@ const electronAPI: ElectronAPI = {
 
   openPath: (path) => ipcRenderer.invoke('shell:open-path', path),
   showItemInFolder: (fullPath) => ipcRenderer.send('shell:show-item-in-folder', fullPath),
+  openExternal: (url) => ipcRenderer.invoke('shell:open-external', url),
   getAppVersion: () => ipcRenderer.invoke('app:get-version'),
 
   updateTrayRecording: (isRecording, elapsed) =>

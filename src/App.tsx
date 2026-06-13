@@ -3397,8 +3397,14 @@ export default function ReunIA() {
               <div className="space-y-5">
                 {/* AI Provider */}
                 <div>
-                  <label className="text-xs uppercase tracking-widest text-text-muted block mb-1.5">Proveedor de IA (para el informe)</label>
+                  <label className="text-xs uppercase tracking-widest text-text-muted block mb-1.5">Proveedor de IA (transcripción + informe + coach)</label>
                   <div className="flex gap-2">
+                    <button
+                      onClick={() => saveSettings({ aiProvider: 'gemini' })}
+                      className={`btn flex-1 text-sm py-2 ${settings.aiProvider === 'gemini' ? 'btn-primary' : 'btn-secondary'}`}
+                    >
+                      Gemini (Gratis)
+                    </button>
                     <button
                       onClick={() => saveSettings({ aiProvider: 'openai' })}
                       className={`btn flex-1 text-sm py-2 ${settings.aiProvider === 'openai' ? 'btn-primary' : 'btn-secondary'}`}
@@ -3414,8 +3420,10 @@ export default function ReunIA() {
                   </div>
                   <div className="text-[11px] text-text-muted mt-1">
                     {settings.aiProvider === 'ollama'
-                      ? 'Usa tu modelo local (llama3.2, gemma2, mistral, etc.). Requiere Ollama corriendo.'
-                      : 'Usa OpenAI (recomendado para mejor calidad de informes).'}
+                      ? 'Usa tu modelo local (llama3.2, gemma2, mistral, etc.). 100% privado. Requiere Ollama corriendo.'
+                      : settings.aiProvider === 'gemini'
+                      ? 'Gratis (sin tarjeta). Consigue tu clave en 30 s en Google AI Studio. Transcribe y genera informes y coach.'
+                      : 'Usa OpenAI (de pago, muy buena calidad). Necesita una clave con saldo.'}
                   </div>
                 </div>
 
@@ -3430,6 +3438,40 @@ export default function ReunIA() {
                       value={settings.openaiApiKey} 
                       onChange={(e) => saveSettings({ openaiApiKey: e.target.value })}
                     />
+                  </div>
+                )}
+
+                {/* Gemini settings (gratis) */}
+                {settings.aiProvider === 'gemini' && (
+                  <div className="space-y-3 rounded-xl bg-bg/60 p-4 border border-white/10">
+                    <div>
+                      <label className="text-xs uppercase tracking-widest text-text-muted block mb-1.5">Clave API de Gemini (gratis)</label>
+                      <input
+                        type="password"
+                        className="input font-mono text-sm"
+                        placeholder="AIza..."
+                        value={settings.geminiApiKey || ''}
+                        onChange={(e) => saveSettings({ geminiApiKey: e.target.value })}
+                      />
+                      <div className="text-[11px] text-text-muted mt-1.5">
+                        Consíguela gratis (sin tarjeta) en{' '}
+                        <a
+                          href="https://aistudio.google.com/app/apikey"
+                          onClick={(e) => { e.preventDefault(); (window as any).electron?.openExternal?.('https://aistudio.google.com/app/apikey') }}
+                          className="text-accent underline cursor-pointer"
+                        >Google AI Studio → "Create API key"</a>. Pégala aquí y listo.
+                      </div>
+                    </div>
+                    <div>
+                      <label className="text-xs uppercase tracking-widest text-text-muted block mb-1">Modelo Gemini</label>
+                      <input
+                        className="input text-sm"
+                        value={settings.geminiModel || 'gemini-2.0-flash'}
+                        onChange={e => saveSettings({ geminiModel: e.target.value })}
+                        placeholder="gemini-2.0-flash"
+                      />
+                      <div className="text-[11px] text-text-muted mt-1">Recomendado: gemini-2.0-flash (rápido y gratis). También: gemini-2.5-flash.</div>
+                    </div>
                   </div>
                 )}
 

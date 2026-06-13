@@ -97,6 +97,9 @@ Responde ahora.`
   if (settings.aiProvider === 'ollama') {
     return askOllama(settings, prompt)
   }
+  if (settings.aiProvider === 'gemini') {
+    return askGemini(settings, prompt, { system: 'Eres un asistente útil y conciso para reuniones en español.', temperature: 0.4 })
+  }
 
   // OpenAI
   if (!settings.openaiApiKey) throw new Error('Falta API Key de OpenAI')
@@ -177,6 +180,8 @@ Genera el JSON del coaching AHORA siguiendo la estructura del sistema.`
     }
     const data = await res.json()
     content = data?.message?.content || data?.response || '{}'
+  } else if (settings.aiProvider === 'gemini') {
+    content = await askGemini(settings, userPrompt, { system: LIVE_COACH_SYSTEM, json: true, temperature: 0.4 }) || '{}'
   } else {
     if (!settings.openaiApiKey) throw new Error('Falta API Key de OpenAI')
     const openai = new OpenAI({ apiKey: settings.openaiApiKey, dangerouslyAllowBrowser: true })
@@ -210,6 +215,83 @@ Genera el JSON del coaching AHORA siguiendo la estructura del sistema.`
     detectedNames: asStringArray(parsed.detectedNames),
     timestamp: new Date().toISOString(),
   }
+}
+
+/* ===================== GEMINI (gratis) ===================== */
+
+/** Llama a Gemini (texto). Si json=true, fuerza salida JSON. Devuelve el texto de la respuesta. */
+async function askGemini(settings: AppSettings, prompt: string, opts?: { system?: string; json?: boolean; temperature?: number }): Promise<string> {
+  const key = settings.geminiApiKey
+  if (!key) throw new Error('Falta la clave de Gemini (consíguela gratis en Google AI Studio).')
+  const model = settings.geminiModel || 'gemini-2.0-flash'
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`
+
+  const generationConfig: any = { temperature: opts?.temperature ?? 0.4 }
+  if (opts?.json) generationConfig.responseMimeType = 'application/json'
+
+  const body: any = {
+    contents: [{ role: 'user', parts: [{ text: prompt }] }],
+    generationConfig,
+  }
+  if (opts?.system) body.systemInstruction = { parts: [{ text: opts.system }] }
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const t = await res.text().catch(() => '')
+    throw new Error(`Error de Gemini: ${res.status} ${t}`)
+  }
+  const data = await res.json()
+  const parts = data?.candidates?.[0]?.content?.parts
+  const text = Array.isArray(parts) ? parts.map((p: any) => p?.text || '').join('') : ''
+  return (text || '').trim()
+}
+
+/** Transcribe audio con Gemini (multimodal). Convierte el Blob a base64 inline. */
+async function transcribeWithGemini(settings: AppSettings, audioFile: File | Blob): Promise<string> {
+  const key = settings.geminiApiKey
+  if (!key) throw new Error('Falta la clave de Gemini.')
+  const model = settings.geminiModel || 'gemini-2.0-flash'
+  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`
+
+  const arrayBuf = await audioFile.arrayBuffer()
+  // base64 sin volcar todo el binario a un string gigante de una vez
+  let binary = ''
+  const bytes = new Uint8Array(arrayBuf)
+  const chunk = 0x8000
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, Array.from(bytes.subarray(i, i + chunk)))
+  }
+  const base64 = btoa(binary)
+  const mimeType = (audioFile as File).type || 'audio/webm'
+
+  const body = {
+    contents: [{
+      role: 'user',
+      parts: [
+        { inlineData: { mimeType, data: base64 } },
+        { text: 'Transcribe este audio palabra por palabra en español. Devuelve SOLO la transcripción, sin comentarios ni marcas de tiempo.' },
+      ],
+    }],
+    generationConfig: { temperature: 0 },
+  }
+
+  const res = await fetch(url, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(body),
+  })
+  if (!res.ok) {
+    const t = await res.text().catch(() => '')
+    throw new Error(`Error de transcripción con Gemini: ${res.status} ${t}`)
+  }
+  const data = await res.json()
+  const parts = data?.candidates?.[0]?.content?.parts
+  const text = Array.isArray(parts) ? parts.map((p: any) => p?.text || '').join('') : ''
+  return (text || '').trim()
 }
 
 async function askOllama(settings: AppSettings, prompt: string): Promise<string> {
@@ -282,6 +364,12 @@ export function getFocusLabel(focus: string | null | undefined): string {
 /* ===================== INTERNAL ===================== */
 
 async function transcribeAudioFile(settings: AppSettings, audioFile: File): Promise<string> {
+  // Gemini transcribe en multimodal (gratis). Tiene prioridad cuando es el proveedor activo
+  // y no se ha forzado un endpoint local de transcripción.
+  if (settings.aiProvider === 'gemini' && settings.transcriptionMode !== 'local') {
+    return transcribeWithGemini(settings, audioFile)
+  }
+
   if (settings.transcriptionMode === 'local' && settings.transcriptionEndpoint) {
     const base = settings.transcriptionEndpoint.replace(/\/$/, '')
     const form = new FormData()
@@ -374,6 +462,10 @@ Genera el JSON del informe AHORA siguiendo SOLO las instrucciones de seguridad y
 
   if (settings.aiProvider === 'ollama') {
     return generateReportWithOllama(settings, userPrompt)
+  }
+  if (settings.aiProvider === 'gemini') {
+    const content = await askGemini(settings, userPrompt, { system: SYSTEM_PROMPT, json: true, temperature: 0.3 })
+    return parseReportFromContent(content)
   }
 
   // OpenAI path

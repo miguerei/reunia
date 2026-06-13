@@ -54,11 +54,25 @@ hdiutil detach "$MOUNT_DIR" -quiet || true
 # Remove the quarantine flag (the build is not yet notarized by Apple)
 xattr -cr "/Applications/${APP_NAME}.app" || true
 
+# Audio del sistema (opcional): ofrecer instalar BlackHole automáticamente con Homebrew.
+# Tu MICRÓFONO funciona sin esto; BlackHole solo hace falta para capturar también
+# la voz de los DEMÁS en una videollamada (Meet/Zoom).
+if ! system_profiler SPAudioDataType 2>/dev/null | grep -qi "BlackHole"; then
+  if command -v brew >/dev/null 2>&1; then
+    printf "\n¿Instalar BlackHole para capturar el audio de las videollamadas (voz de los demás)? [s/N] "
+    read -r REPLY </dev/tty 2>/dev/null || REPLY="n"
+    if [ "$REPLY" = "s" ] || [ "$REPLY" = "S" ]; then
+      echo "📦 Instalando BlackHole vía Homebrew..."
+      brew install blackhole-2ch || echo "⚠️  No se pudo instalar automáticamente; descárgalo de https://existential.audio/blackhole/"
+    fi
+  fi
+fi
+
 echo "🚀 Abriendo ${APP_NAME}..."
 open -a "${APP_NAME}"
 
 echo ""
 echo "✅ ${APP_NAME} instalada. Primer uso:"
-echo "   1. En Ajustes (se abre sola): pega tu clave de OpenAI o elige Ollama (local)."
-echo "   2. Para grabar Meet/Zoom completo instala BlackHole: https://github.com/ExistentialAudio/BlackHole"
-echo "   3. Pulsa grabar (o Cmd+Shift+R) y al terminar tendrás el informe con IA."
+echo "   1. En Ajustes (se abre sola): elige Gemini (GRATIS, clave en 30s) u Ollama (local), o pega tu clave de OpenAI."
+echo "   2. Tu micrófono ya graba. Para capturar también a los demás en videollamadas, usa BlackHole como 'audio del sistema'."
+echo "   3. Pulsa grabar (o Cmd+Shift+R). Durante la reunión, prueba el botón 'Resumen últimos minutos' (Coach IA)."
