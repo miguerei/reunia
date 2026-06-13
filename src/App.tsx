@@ -6,6 +6,8 @@ import {
 } from 'lucide-react'
 import { motion, AnimatePresence } from 'framer-motion'
 import { format } from 'date-fns'
+// Importado para que Vite emita una URL correcta y relativa (funciona bajo file:// en el empaquetado)
+import reuniaLogo from './assets/reunia-logo.png'
 import { es } from 'date-fns/locale'
 import { Toaster, toast } from 'sonner'
 import WaveSurfer from 'wavesurfer.js'
@@ -549,7 +551,7 @@ function CompanionLiveUI({ onAsk, onClose }: {
       {/* Title bar (frameless window, draggable via css if wanted) */}
       <div className="h-8 bg-bg-secondary/90 flex items-center justify-between px-2 text-[10px] border-b border-white/10 drag">
         <div className="flex items-center gap-1.5 font-medium">
-          <img src="/reunia-logo.png" alt="ReunIA" className="w-4 h-4 rounded object-contain" onError={(e) => { (e.target as HTMLImageElement).src = '/reunia-logo.svg'; }} />
+          <img src={reuniaLogo} alt="ReunIA" className="w-4 h-4 rounded object-contain" />
           <span>ReunIA <span className="text-text-muted">compañero</span></span>
           {primaryMode !== 'normal' && <span className="text-[8px] px-1 py-px rounded bg-white/10 text-text-muted/70">{primaryMode}</span>}
           {/* Cycle mode directly from PiP (high-impact autonomous enhancement).
@@ -762,6 +764,12 @@ export default function ReunIA() {
   // for new team members so they can paste their OpenAI key or switch to Ollama immediately.
   const [didFirstRunCheck, setDidFirstRunCheck] = useState(false)
   const [showOnboarding, setShowOnboarding] = useState(false)
+  // Cierra el onboarding y lo marca como visto para que NO vuelva a aparecer solo.
+  // (Antes el efecto se re-disparaba al cerrarlo y lo reabría en bucle.)
+  const dismissOnboarding = () => {
+    try { localStorage.setItem('reunia-onboarded', '1') } catch { /* ignore */ }
+    setShowOnboarding(false)
+  }
 
   // Secure update status (events come only from main process via IPC)
   const [updateStatus, setUpdateStatus] = useState<any>(null)
@@ -1037,14 +1045,19 @@ export default function ReunIA() {
     }
   }, [settings, didFirstRunCheck, setSettingsOpen]);
 
-  // Show friendly onboarding modal the very first time (when there are no sessions yet)
+  // Show the friendly onboarding modal only ONCE per install (first run, no sessions).
+  // Gated by a localStorage flag so closing it doesn't retrigger the effect in a loop.
   useEffect(() => {
-    if (sessions.length === 0 && !showOnboarding && didFirstRunCheck) {
-      // Small delay so the UI settles
-      const t = setTimeout(() => setShowOnboarding(true), 1200);
-      return () => clearTimeout(t);
+    if (!didFirstRunCheck) return
+    let alreadySeen = false
+    try { alreadySeen = localStorage.getItem('reunia-onboarded') === '1' } catch { /* ignore */ }
+    if (alreadySeen) return
+    if (sessions.length === 0) {
+      const t = setTimeout(() => setShowOnboarding(true), 1200)
+      return () => clearTimeout(t)
     }
-  }, [sessions.length, showOnboarding, didFirstRunCheck]);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [didFirstRunCheck]);
 
   // Listen to global hotkey / tray toggles from main
   useEffect(() => {
@@ -1990,11 +2003,10 @@ export default function ReunIA() {
       <div className="h-14 border-b border-white/10 bg-bg-secondary/80 backdrop-blur flex items-center justify-between px-4 drag">
         <div className="flex items-center gap-3">
           <div className="flex items-center gap-2">
-            <img 
-              src="/reunia-logo.png" 
-              alt="ReunIA" 
-              className="w-8 h-8 rounded-xl object-contain ring-1 ring-white/10" 
-              onError={(e) => { (e.target as HTMLImageElement).src = '/reunia-logo.svg'; }}
+            <img
+              src={reuniaLogo}
+              alt="ReunIA"
+              className="w-8 h-8 rounded-xl object-contain ring-1 ring-white/10"
             />
             <div>
               <div className="font-semibold tracking-tight text-lg leading-none">ReunIA</div>
@@ -3113,7 +3125,7 @@ export default function ReunIA() {
             <div className="flex-1 flex items-center justify-center p-8">
               <div className="max-w-md text-center">
                 <div className="mx-auto w-16 h-16 rounded-2xl bg-accent/10 flex items-center justify-center mb-6 overflow-hidden ring-1 ring-white/10">
-                  <img src="/reunia-logo.png" alt="ReunIA" className="w-12 h-12 object-contain" onError={(e) => { (e.target as HTMLImageElement).src = '/reunia-logo.svg'; }} />
+                  <img src={reuniaLogo} alt="ReunIA" className="w-12 h-12 object-contain" />
                 </div>
                 <h1 className="text-3xl font-semibold tracking-tight mb-2">Bienvenido a ReunIA</h1>
                 <p className="text-text-secondary mb-8">
@@ -3782,14 +3794,17 @@ export default function ReunIA() {
       {/* Simple first-time onboarding modal - visual and easy to understand */}
       <AnimatePresence>
         {showOnboarding && (
-          <div className="fixed inset-0 bg-black/80 z-[70] flex items-center justify-center p-6" onClick={() => setShowOnboarding(false)}>
+          <div className="fixed inset-0 bg-black/80 z-[70] flex items-center justify-center p-6" onClick={dismissOnboarding}>
             <div className="card max-w-lg w-full p-8" onClick={e => e.stopPropagation()}>
               <div className="flex justify-between items-start mb-6">
-                <div>
-                  <div className="font-semibold text-2xl tracking-tight">¡Bienvenido a ReunIA!</div>
-                  <div className="text-text-muted text-sm">3 pasos para empezar a grabar reuniones con IA</div>
+                <div className="flex items-center gap-3">
+                  <img src={reuniaLogo} alt="ReunIA" className="w-11 h-11 rounded-xl object-cover ring-1 ring-white/10" />
+                  <div>
+                    <div className="font-semibold text-2xl tracking-tight">¡Bienvenido a ReunIA!</div>
+                    <div className="text-text-muted text-sm">3 pasos para empezar a grabar reuniones con IA</div>
+                  </div>
                 </div>
-                <button onClick={() => setShowOnboarding(false)} className="text-text-muted hover:text-white">✕</button>
+                <button onClick={dismissOnboarding} className="text-text-muted hover:text-white">✕</button>
               </div>
 
               <div className="space-y-5 text-sm">
@@ -3817,8 +3832,8 @@ export default function ReunIA() {
               </div>
 
               <div className="mt-8 flex gap-3">
-                <button onClick={() => { setShowOnboarding(false); setSettingsOpen(true); }} className="btn btn-primary flex-1">Abrir Ajustes ahora</button>
-                <button onClick={() => setShowOnboarding(false)} className="btn btn-secondary flex-1">Empezar a grabar</button>
+                <button onClick={() => { dismissOnboarding(); setSettingsOpen(true); }} className="btn btn-primary flex-1">Abrir Ajustes ahora</button>
+                <button onClick={dismissOnboarding} className="btn btn-secondary flex-1">Empezar a grabar</button>
               </div>
 
               <div className="text-[10px] text-center text-text-muted mt-4">Todo queda en tu equipo. 100% privado y seguro.</div>

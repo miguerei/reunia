@@ -1,7 +1,7 @@
 {
   "name": "reunia",
   "productName": "ReunIA",
-  "version": "0.3.1",
+  "version": "0.3.2",
   "description": "Grabador de reuniones con IA. Registra audio del PC y llamadas (Google Meet, Zoom, etc.), transcribe con Whisper y genera informes inteligentes con resúmenes, insights clave, asistentes, recomendaciones, consejos y to-do list. 100% local-first con opción de Ollama.",
   "author": "Miguel Reina",
   "license": "MIT",

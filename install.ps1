@@ -4,6 +4,17 @@
 $ErrorActionPreference = 'Stop'
 
 $Repo = 'miguerei/reunia'
+
+$banner = @"
+   ____            ___    _
+  |  _ \ ___ _   _|_ _|  / \
+  | |_) / _ \ | | || |  / _ \
+  |  _ <  __/ |_| || | / ___ \
+  |_| \_\___|\__,_|___/_/   \_\
+"@
+Write-Host $banner -ForegroundColor Magenta
+Write-Host "  Grabador de reuniones con IA - by Miguel Reina`n" -ForegroundColor Gray
+
 Write-Host "🎙️  Instalando ReunIA..." -ForegroundColor Cyan
 
 $release = Invoke-RestMethod -Uri "https://api.github.com/repos/$Repo/releases/latest" -Headers @{ 'User-Agent' = 'ReunIA-Installer' }

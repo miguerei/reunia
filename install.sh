@@ -7,6 +7,19 @@ set -euo pipefail
 REPO="miguerei/reunia"
 APP_NAME="ReunIA"
 
+# Banner / logo en la terminal
+printf '\033[35m'
+cat <<'BANNER'
+   ____            ___    _
+  |  _ \ ___ _   _|_ _|  / \
+  | |_) / _ \ | | || |  / _ \
+  |  _ <  __/ |_| || | / ___ \
+  |_| \_\___|\__,_|___/_/   \_\
+BANNER
+printf '\033[0m'
+echo "  Grabador de reuniones con IA · by Miguel Reina"
+echo ""
+
 echo "🎙️  Instalando ${APP_NAME}..."
 
 if [ "$(uname)" != "Darwin" ]; then
