@@ -1014,7 +1014,7 @@ app.whenReady().then(() => {
             "img-src 'self' data: blob:; " +
             "font-src 'self' data:; " +
             "media-src 'self' blob:; " +
-            "connect-src 'self' https://api.openai.com https://generativelanguage.googleapis.com http://localhost:* http://127.0.0.1:*; " +
+            "connect-src 'self' https://api.openai.com https://generativelanguage.googleapis.com https://reunia-pied.vercel.app http://localhost:* http://127.0.0.1:*; " +
             "object-src 'none'; base-uri 'self'; frame-ancestors 'none'",
           ],
         },

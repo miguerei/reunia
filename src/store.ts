@@ -94,14 +94,16 @@ const defaultSettings: AppSettings = {
   autoProcess: true,
   preferredModel: 'gpt-4o-mini',
 
-  // Local / Ollama defaults
-  aiProvider: 'openai',
+  // Proveedor por defecto: Gemini en modo equipo → los compañeros graban sin configurar nada.
+  aiProvider: 'gemini',
   ollamaBaseUrl: 'http://localhost:11434',
   ollamaModel: 'llama3.2',
 
-  // Gemini (gratis)
+  // Gemini (gratis). Por defecto modo equipo: usa el proxy compartido, sin pedir clave.
   geminiApiKey: '',
   geminiModel: 'gemini-2.0-flash',
+  geminiMode: 'team',
+  geminiProxyUrl: 'https://reunia-pied.vercel.app/api/gemini',
 
   transcriptionMode: 'openai',
   transcriptionEndpoint: 'http://localhost:8000/v1',

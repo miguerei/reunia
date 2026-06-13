@@ -3456,24 +3456,47 @@ export default function ReunIA() {
                 {/* Gemini settings (gratis) */}
                 {settings.aiProvider === 'gemini' && (
                   <div className="space-y-3 rounded-xl bg-bg/60 p-4 border border-white/10">
-                    <div>
-                      <label className="text-xs uppercase tracking-widest text-text-muted block mb-1.5">Clave API de Gemini (gratis)</label>
-                      <input
-                        type="password"
-                        className="input font-mono text-sm"
-                        placeholder="AIza..."
-                        value={settings.geminiApiKey || ''}
-                        onChange={(e) => saveSettings({ geminiApiKey: e.target.value })}
-                      />
-                      <div className="text-[11px] text-text-muted mt-1.5">
-                        Consíguela gratis (sin tarjeta) en{' '}
-                        <a
-                          href="https://aistudio.google.com/app/apikey"
-                          onClick={(e) => { e.preventDefault(); (window as any).electron?.openExternal?.('https://aistudio.google.com/app/apikey') }}
-                          className="text-accent underline cursor-pointer"
-                        >Google AI Studio → "Create API key"</a>. Pégala aquí y listo.
-                      </div>
+                    {/* Modo equipo (proxy compartido) vs clave propia */}
+                    <div className="flex gap-2">
+                      <button
+                        onClick={() => saveSettings({ geminiMode: 'team' })}
+                        className={`btn flex-1 text-sm py-2 ${(settings.geminiMode ?? 'team') === 'team' ? 'btn-primary' : 'btn-secondary'}`}
+                      >
+                        Clave del equipo
+                      </button>
+                      <button
+                        onClick={() => saveSettings({ geminiMode: 'own' })}
+                        className={`btn flex-1 text-sm py-2 ${settings.geminiMode === 'own' ? 'btn-primary' : 'btn-secondary'}`}
+                      >
+                        Mi propia clave
+                      </button>
                     </div>
+
+                    {(settings.geminiMode ?? 'team') === 'team' ? (
+                      <div className="text-[11px] text-text-muted leading-snug">
+                        ✅ No necesitas configurar nada: la app usa la clave compartida del equipo (alojada de forma segura, nunca se expone). Perfecto para tus compañeros. Para reuniones muy largas puede convenir una clave propia.
+                      </div>
+                    ) : (
+                      <div>
+                        <label className="text-xs uppercase tracking-widest text-text-muted block mb-1.5">Tu clave API de Gemini (gratis)</label>
+                        <input
+                          type="password"
+                          className="input font-mono text-sm"
+                          placeholder="AIza..."
+                          value={settings.geminiApiKey || ''}
+                          onChange={(e) => saveSettings({ geminiApiKey: e.target.value })}
+                        />
+                        <div className="text-[11px] text-text-muted mt-1.5">
+                          Consíguela gratis (sin tarjeta) en{' '}
+                          <a
+                            href="https://aistudio.google.com/app/apikey"
+                            onClick={(e) => { e.preventDefault(); (window as any).electron?.openExternal?.('https://aistudio.google.com/app/apikey') }}
+                            className="text-accent underline cursor-pointer"
+                          >Google AI Studio → "Create API key"</a>.
+                        </div>
+                      </div>
+                    )}
+
                     <div>
                       <label className="text-xs uppercase tracking-widest text-text-muted block mb-1">Modelo Gemini</label>
                       <input
@@ -3482,7 +3505,7 @@ export default function ReunIA() {
                         onChange={e => saveSettings({ geminiModel: e.target.value })}
                         placeholder="gemini-2.0-flash"
                       />
-                      <div className="text-[11px] text-text-muted mt-1">Recomendado: gemini-2.0-flash (rápido y gratis). También: gemini-2.5-flash.</div>
+                      <div className="text-[11px] text-text-muted mt-1">Recomendado: gemini-2.0-flash (rápido y gratis).</div>
                     </div>
                   </div>
                 )}

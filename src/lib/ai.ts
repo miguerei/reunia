@@ -219,44 +219,67 @@ Genera el JSON del coaching AHORA siguiendo la estructura del sistema.`
 
 /* ===================== GEMINI (gratis) ===================== */
 
-/** Llama a Gemini (texto). Si json=true, fuerza salida JSON. Devuelve el texto de la respuesta. */
-async function askGemini(settings: AppSettings, prompt: string, opts?: { system?: string; json?: boolean; temperature?: number }): Promise<string> {
-  const key = settings.geminiApiKey
-  if (!key) throw new Error('Falta la clave de Gemini (consíguela gratis en Google AI Studio).')
+/**
+ * Envía un payload de generateContent a Gemini, bien directo (con clave personal)
+ * o a través del proxy del equipo (modo 'team': la clave vive en el servidor, no en la app).
+ * Devuelve el JSON de respuesta de Gemini ya parseado.
+ */
+async function geminiGenerate(settings: AppSettings, payload: any): Promise<any> {
   const model = settings.geminiModel || 'gemini-2.0-flash'
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`
+  const teamMode = (settings.geminiMode ?? 'team') === 'team'
 
-  const generationConfig: any = { temperature: opts?.temperature ?? 0.4 }
-  if (opts?.json) generationConfig.responseMimeType = 'application/json'
-
-  const body: any = {
-    contents: [{ role: 'user', parts: [{ text: prompt }] }],
-    generationConfig,
+  let res: Response
+  if (teamMode) {
+    const proxy = settings.geminiProxyUrl || 'https://reunia-pied.vercel.app/api/gemini'
+    res = await fetch(proxy, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ model, payload }),
+    })
+  } else {
+    const key = settings.geminiApiKey
+    if (!key) throw new Error('Falta la clave de Gemini (consíguela gratis en Google AI Studio) o activa el modo equipo.')
+    const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`
+    res = await fetch(url, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    })
   }
-  if (opts?.system) body.systemInstruction = { parts: [{ text: opts.system }] }
 
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
   if (!res.ok) {
     const t = await res.text().catch(() => '')
-    throw new Error(`Error de Gemini: ${res.status} ${t}`)
+    if (res.status === 413) throw new Error('El audio es demasiado largo para el modo equipo. Usa una clave propia de Gemini para reuniones largas.')
+    if (teamMode && res.status === 500) throw new Error('El modo equipo aún no está activo: el dueño debe configurar la clave compartida en Vercel. Mientras tanto, usa "Mi propia clave".')
+    throw new Error(`Error de Gemini${teamMode ? ' (modo equipo)' : ''}: ${res.status} ${t}`)
   }
-  const data = await res.json()
+  // El proxy responde JSON; si llega HTML (proxy no desplegado todavía) lo detectamos.
+  const raw = await res.text()
+  try {
+    return JSON.parse(raw)
+  } catch {
+    if (teamMode) throw new Error('El modo equipo no está disponible (el proxy no responde). Activa "Mi propia clave" en Ajustes mientras se configura.')
+    throw new Error('Respuesta inesperada de Gemini.')
+  }
+}
+
+function extractGeminiText(data: any): string {
   const parts = data?.candidates?.[0]?.content?.parts
   const text = Array.isArray(parts) ? parts.map((p: any) => p?.text || '').join('') : ''
   return (text || '').trim()
 }
 
+/** Llama a Gemini (texto). Si json=true, fuerza salida JSON. Devuelve el texto de la respuesta. */
+async function askGemini(settings: AppSettings, prompt: string, opts?: { system?: string; json?: boolean; temperature?: number }): Promise<string> {
+  const generationConfig: any = { temperature: opts?.temperature ?? 0.4 }
+  if (opts?.json) generationConfig.responseMimeType = 'application/json'
+  const payload: any = { contents: [{ role: 'user', parts: [{ text: prompt }] }], generationConfig }
+  if (opts?.system) payload.systemInstruction = { parts: [{ text: opts.system }] }
+  return extractGeminiText(await geminiGenerate(settings, payload))
+}
+
 /** Transcribe audio con Gemini (multimodal). Convierte el Blob a base64 inline. */
 async function transcribeWithGemini(settings: AppSettings, audioFile: File | Blob): Promise<string> {
-  const key = settings.geminiApiKey
-  if (!key) throw new Error('Falta la clave de Gemini.')
-  const model = settings.geminiModel || 'gemini-2.0-flash'
-  const url = `https://generativelanguage.googleapis.com/v1beta/models/${model}:generateContent?key=${encodeURIComponent(key)}`
-
   const arrayBuf = await audioFile.arrayBuffer()
   // base64 sin volcar todo el binario a un string gigante de una vez
   let binary = ''
@@ -268,7 +291,7 @@ async function transcribeWithGemini(settings: AppSettings, audioFile: File | Blo
   const base64 = btoa(binary)
   const mimeType = (audioFile as File).type || 'audio/webm'
 
-  const body = {
+  const payload = {
     contents: [{
       role: 'user',
       parts: [
@@ -278,20 +301,7 @@ async function transcribeWithGemini(settings: AppSettings, audioFile: File | Blo
     }],
     generationConfig: { temperature: 0 },
   }
-
-  const res = await fetch(url, {
-    method: 'POST',
-    headers: { 'Content-Type': 'application/json' },
-    body: JSON.stringify(body),
-  })
-  if (!res.ok) {
-    const t = await res.text().catch(() => '')
-    throw new Error(`Error de transcripción con Gemini: ${res.status} ${t}`)
-  }
-  const data = await res.json()
-  const parts = data?.candidates?.[0]?.content?.parts
-  const text = Array.isArray(parts) ? parts.map((p: any) => p?.text || '').join('') : ''
-  return (text || '').trim()
+  return extractGeminiText(await geminiGenerate(settings, payload))
 }
 
 async function askOllama(settings: AppSettings, prompt: string): Promise<string> {
