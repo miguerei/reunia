@@ -16,6 +16,7 @@ export interface Session {
 }
 
 export interface Report {
+  title?: string   // título corto descriptivo generado por la IA
   summary: string
   keyInsights: string[]
   attendees: string[]
