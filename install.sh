@@ -1,6 +1,6 @@
 #!/bin/bash
 # ReunIA - instalador de un comando para macOS
-#   curl -fsSL https://reunia-pied.vercel.app/install.sh | bash
+#   curl -fsSL https://raw.githubusercontent.com/miguerei/reunia/main/install.sh | bash
 # Descarga el último release desde GitHub, instala en /Aplicaciones y abre la app.
 set -euo pipefail
 

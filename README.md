@@ -17,17 +17,19 @@ Todo **local-first**: tus grabaciones y memoria quedan en tu PC. Cada miembro de
 
 ## Instalación con un comando (lo más rápido)
 
-Pega esto en tu terminal — descarga el último release, lo instala y abre la app:
+Pega esto en tu terminal — descarga el último release, lo instala y **lo abre listo para usar** (en macOS resuelve solo el aviso de Gatekeeper, sin pasos manuales):
 
-**macOS** (Terminal):
+**macOS** (abre la app *Terminal* y pega):
 ```bash
-curl -fsSL https://reunia-pied.vercel.app/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/miguerei/reunia/main/install.sh | bash
 ```
 
-**Windows** (PowerShell):
+**Windows** (abre *PowerShell* y pega):
 ```powershell
-irm https://reunia-pied.vercel.app/install.ps1 | iex
+irm https://raw.githubusercontent.com/miguerei/reunia/main/install.ps1 | iex
 ```
+
+> Estos comandos funcionan directamente desde GitHub (repo público), sin instalar nada más.
 
 ## Descarga e instalación manual (alternativa)
 

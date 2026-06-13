@@ -1,5 +1,5 @@
 # ReunIA - instalador de un comando para Windows (PowerShell)
-#   irm https://reunia-pied.vercel.app/install.ps1 | iex
+#   irm https://raw.githubusercontent.com/miguerei/reunia/main/install.ps1 | iex
 # Descarga el ultimo release desde GitHub y lanza el instalador.
 $ErrorActionPreference = 'Stop'
 
